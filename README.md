@@ -38,6 +38,11 @@ qmk compile -kb epomaker/galaxy100 -km via
 
 ## Flash
 
+**Back up your stock firmware first.** Enter the bootloader (hold **Esc** while plugging in the
+cable, back switch on USB), then run `wb32-dfu-updater_cli -U stock.bin -Z 262144` and keep
+`stock.bin` safe; restore it any time with `wb32-dfu-updater_cli -D stock.bin`. Never use `-t`
+(it disables read protection and erases the flash).
+
 1. Back switch on **USB**, cable connected.
 2. Enter the bootloader:
    - **Fn + Right Shift + Esc**: keeps keymap, macros and settings (`SKIP_VERSION = yes` keeps
@@ -48,9 +53,6 @@ qmk compile -kb epomaker/galaxy100 -km via
    or `qmk flash`.
 
 A factory reset is also available from VIA (Keyboard → Info and reset → Unlock factory reset).
-
-**Back up your stock firmware first**: `wb32-dfu-updater_cli -U stock.bin -Z 262144` in bootloader
-mode. Never use `-t` (it disables read protection and erases the flash).
 
 ## VIA
 
