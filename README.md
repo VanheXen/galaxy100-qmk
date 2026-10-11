@@ -59,7 +59,7 @@ cable, back switch on USB), then run `wb32-dfu-updater_cli -U stock.bin -Z 26214
    - or hold **Esc** while plugging in the cable: resets everything to the firmware defaults.
      Needed when an update changes the settings storage layout (noted in the
      [changelog](CHANGELOG.md)).
-3. `wb32-dfu-updater_cli -w -D epomaker_galaxy100_via.bin` (`-w` waits for the bootloader),
+3. `wb32-dfu-updater_cli -w -R -D epomaker_galaxy100_via.bin` (`-w` waits for the bootloader, `-R` restarts the keyboard afterwards; without it, replug),
    or `qmk flash`.
 
 ## VIA
