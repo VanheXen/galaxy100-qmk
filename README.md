@@ -53,14 +53,14 @@ cable, back switch on USB), then run `wb32-dfu-updater_cli -U stock.bin -Z 26214
 3. `wb32-dfu-updater_cli -w -D epomaker_galaxy100_via.bin` (`-w` waits for the bootloader),
    or `qmk flash`.
 
-VIA also has a **factory reset** (Keyboard → Info and reset → Unlock factory reset): it resets
-keymap, macros, lighting and settings to this firmware's defaults. It does **not** change the
-firmware; to go back to Epomaker's stock firmware, flash your `stock.bin` backup.
-
 ## VIA
 
 Load [`via/galaxy100_via.json`](via/galaxy100_via.json) in usevia.app → Settings → Show Design tab →
 Design → Load. New controls are hidden on older firmware via `{id_firmware_version}`.
+
+**Factory reset** (Keyboard → Info and reset → Unlock factory reset): resets keymap, macros,
+lighting and settings to this firmware's defaults. It does **not** change the firmware; to go
+back to Epomaker's stock firmware, flash your `stock.bin` backup (see Flash).
 
 ## Fn layer (Windows)
 
