@@ -243,7 +243,12 @@
                 3,
                 4
               ]
-            },
+            }
+          ]
+        },
+        {
+          "label": "Indicators",
+          "content": [
             {
               "showIf": "{id_firmware_version} >= 2026101102",
               "content": [
@@ -271,14 +276,9 @@
                   ]
                 }
               ]
-            }
-          ]
-        },
-        {
-          "label": "Status light",
-          "content": [
+            },
             {
-              "label": "Shows",
+              "label": "Status light shows",
               "type": "dropdown",
               "content": [
                 "id_status_mode",
@@ -316,7 +316,7 @@
               "showIf": "{id_status_mode} != 4 && {id_status_mode} != 5",
               "content": [
                 {
-                  "label": "Location",
+                  "label": "Status light location",
                   "type": "dropdown",
                   "content": [
                     "id_status_loc",
@@ -339,7 +339,7 @@
                   ]
                 },
                 {
-                  "label": "Brightness",
+                  "label": "Status light brightness",
                   "type": "range",
                   "options": [
                     8,
@@ -361,8 +361,22 @@
       "label": "Keyboard",
       "content": [
         {
-          "label": "Power and system",
+          "label": "Battery and power",
           "content": [
+            {
+              "showIf": "{id_firmware_version} >= 2026101102",
+              "content": [
+                {
+                  "label": "Battery",
+                  "type": "label",
+                  "content": [
+                    "id_battery_text",
+                    0,
+                    13
+                  ]
+                }
+              ]
+            },
             {
               "label": "Dim lights after",
               "type": "dropdown",
@@ -463,15 +477,6 @@
                   4
                 ]
               ]
-            },
-            {
-              "label": "Auto Win/Mac on cable",
-              "type": "toggle",
-              "content": [
-                "id_auto_os",
-                0,
-                11
-              ]
             }
           ]
         },
@@ -564,26 +569,26 @@
                   3
                 ]
               ]
+            },
+            {
+              "label": "Auto Win/Mac on cable",
+              "type": "toggle",
+              "content": [
+                "id_auto_os",
+                0,
+                11
+              ]
             }
           ]
         },
         {
-          "label": "Info and reset",
+          "label": "Reset",
           "content": [
             {
               "showIf": "{id_firmware_version} >= 2026101102",
               "content": [
                 {
-                  "label": "Battery",
-                  "type": "label",
-                  "content": [
-                    "id_battery_text",
-                    0,
-                    13
-                  ]
-                },
-                {
-                  "label": "Restore Keyboard tab and status light defaults",
+                  "label": "Restore Keyboard tab and indicator defaults (keeps keymap and lighting)",
                   "type": "button",
                   "options": [
                     1
