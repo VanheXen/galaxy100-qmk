@@ -741,6 +741,8 @@ void rgb_matrix_start_rec(void) {
     }
 }
 
+#define LOCK_LIGHT 0xFF // Caps / Num / Win lock indicator brightness (stock: 0x20)
+
 bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 
     if (!rgb_matrix_indicators_advanced_user(led_min, led_max)) {
@@ -757,15 +759,15 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
     }
 
     if (host_keyboard_led_state().caps_lock)
-        rgb_matrix_set_color(HS_RGB_INDEX_CAPS, 0x20, 0x20, 0x20);
+        rgb_matrix_set_color(HS_RGB_INDEX_CAPS, LOCK_LIGHT, LOCK_LIGHT, LOCK_LIGHT);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_CAPS, RGB_BLACK);
     if (host_keyboard_led_state().num_lock)
-        rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, 0x20, 0x20, 0x20);
+        rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, LOCK_LIGHT, LOCK_LIGHT, LOCK_LIGHT);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, RGB_BLACK);
     if (!keymap_is_mac_system() && keymap_config.no_gui)
-        rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, 0x20, 0x20, 0x20);
+        rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, LOCK_LIGHT, LOCK_LIGHT, LOCK_LIGHT);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, RGB_BLACK);
 
