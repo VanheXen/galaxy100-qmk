@@ -300,7 +300,8 @@ void wireless_task(void) {
     }
 }
 
-void housekeeping_task_kb(void) {
+// called from the keyboard's housekeeping_task_kb
+void wireless_housekeeping_task(void) {
     if (wireless_get_current_devs() == DEVS_USB && im_test_rate_flag) usb_mode_test_report_task();
     wireless_task();
 }

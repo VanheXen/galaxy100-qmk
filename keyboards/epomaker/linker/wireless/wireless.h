@@ -14,3 +14,4 @@ uint8_t wireless_get_current_devs(void);
 void wireless_pre_task(void);
 void wireless_post_task(void);
 void wireless_task(void);
+void wireless_housekeeping_task(void);

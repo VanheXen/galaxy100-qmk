@@ -287,7 +287,7 @@
               ],
               "options": [
                 [
-                  "Smart: only on events (pairing, charging, low battery\u2026)",
+                  "Smart: only on events (pairing, charging, low battery…)",
                   0
                 ],
                 [
@@ -477,6 +477,38 @@
                   4
                 ]
               ]
+            },
+            {
+              "showIf": "{id_firmware_version} >= 2026101104",
+              "content": [
+                {
+                  "label": "Max brightness on battery",
+                  "type": "dropdown",
+                  "content": [
+                    "id_bat_cap",
+                    0,
+                    17
+                  ],
+                  "options": [
+                    [
+                      "No limit",
+                      0
+                    ],
+                    [
+                      "75 %",
+                      1
+                    ],
+                    [
+                      "50 %",
+                      2
+                    ],
+                    [
+                      "25 %",
+                      3
+                    ]
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -577,6 +609,24 @@
                 "id_auto_os",
                 0,
                 11
+              ]
+            },
+            {
+              "showIf": "{id_firmware_version} >= 2026101104",
+              "content": [
+                {
+                  "label": "Turbo rate (presses per second)",
+                  "type": "range",
+                  "options": [
+                    5,
+                    50
+                  ],
+                  "content": [
+                    "id_turbo_hz",
+                    0,
+                    18
+                  ]
+                }
               ]
             }
           ]
@@ -936,5 +986,5 @@
       ]
     ]
   },
-  "firmwareVersion": 2026101103
+  "firmwareVersion": 2026101104
 }

@@ -9,3 +9,4 @@ enum { SOCD_PAIRS_AD, SOCD_PAIRS_WASD, SOCD_PAIRS_ARROWS, SOCD_PAIRS_ALL, SOCD_P
 extern uint8_t socd_mode;
 extern uint8_t socd_pairs;
 bool           socd_process_record(uint16_t keycode, keyrecord_t *record);
+void           socd_release_all(void);

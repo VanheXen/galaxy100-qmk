@@ -35,7 +35,9 @@
         "rgb_matrix": true,
         "deferred_exec": true,
         "rgblight": false,
-        "encoder": true
+        "encoder": true,
+        "caps_word": true,
+        "repeat_key": true
     },
     "keycodes": [
         {

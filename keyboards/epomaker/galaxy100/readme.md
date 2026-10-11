@@ -20,4 +20,5 @@ To enter the bootloader, do one of the following (back switch on USB):
 * Hold **Esc** while connecting the USB cable: also resets all settings to defaults
 * Hold the reset switch on the bottom of the PCB while connecting the USB cable
 
-See the project README for features, the VIA definition and the changelog.
+See the project README for features and the VIA definition, `CHANGELOG.md` for versions and
+`docs/hardware.md` for pins and verified hardware facts.

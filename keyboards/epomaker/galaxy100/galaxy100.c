@@ -44,7 +44,6 @@ hs_rgb_indicator_t hs_rgb_indicators[HS_RGB_INDICATOR_COUNT];
 
 void rgb_blink_dir(void);
 static keyrecord_t *current_record; // set in process_record_kb, read by rgb_blink_dir
-void hs_reset_settings(void);
 void rgb_matrix_hs_indicator(void);
 void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint8_t times);
 void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time);
@@ -53,8 +52,9 @@ void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time);
 
 uint32_t        post_init_timer = 0x00;
 bool            charging_state  = false;
-static uint32_t ee_clr_timer    = 0;
 static uint32_t rec_time;
+static uint32_t ee_clr_timer = 0; // Fn+Backspace held since
+#define EE_CLR_HOLD_MS 10000
 static bool     rec_filp;
 HSV             start_hsv;
 bool            no_record_fg;
@@ -398,6 +398,10 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
         } break;
 
+        case EE_CLR: {
+            ee_clr_timer = record->event.pressed ? timer_read32() : 0;
+            return false;
+        } break;
         case NK_TOGG: {
             if (rgbrec_is_started()) {
 
@@ -406,15 +410,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 rgb_matrix_hs_indicator_set(0xFF, (RGB){0x00, 0x6E, 0x00}, 250, 1);
             }
-        } break;
-        case EE_CLR: {
-            if (record->event.pressed) {
-                ee_clr_timer = timer_read32();
-            } else {
-                ee_clr_timer = 0;
-            }
-
-            return false;
         } break;
         case RM_SPDU: {
             if (record->event.pressed) {
@@ -513,7 +508,7 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                     rgbrec_start(confinfo.record_channel);
                     no_record_fg = false;
                     rec_time     = timer_read32();
-                    rgbrec_set_close_all(HSV_BLACK);
+                    rgbrec_set_close_all();
                 } else {
                     rec_time = 0;
                     rgbrec_end(confinfo.record_channel);
@@ -592,7 +587,17 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-void housekeeping_task_user(void) {
+void housekeeping_task_kb(void) {
+#ifdef WIRELESS_ENABLE
+    wireless_housekeeping_task();
+#endif
+    housekeeping_task_user();
+
+    // Fn+Backspace held 10 s: same as VIA "Reset everything" (for when VIA is not reachable)
+    if (ee_clr_timer && timer_elapsed32(ee_clr_timer) > EE_CLR_HOLD_MS) {
+        eeconfig_disable();
+        soft_reset_keyboard();
+    }
 
     charging_state = gpio_read_pin(HS_BAT_CABLE_PIN);
 #ifdef WIRELESS_ENABLE
@@ -630,13 +635,6 @@ void rgb_blink_dir(void) {
     rgb_matrix_hs_indicator_set(HS_RGB_BLINK_INDEX_VAD, (RGB){0x20, 0x20, 0x20}, 250, 3);
     rgb_matrix_hs_indicator_set(HS_RGB_BLINK_INDEX_SPI, (RGB){0x20, 0x20, 0x20}, 250, 3);
     rgb_matrix_hs_indicator_set(HS_RGB_BLINK_INDEX_SPD, (RGB){0x20, 0x20, 0x20}, 250, 3);
-}
-
-bool hs_reset_settings_user(void) {
-
-    rgb_matrix_hs_indicator_set(0xFF, (RGB){0x10, 0x10, 0x10}, 250, 3);
-
-    return true;
 }
 
 void nkr_indicators_hook(uint8_t index) {
@@ -753,12 +751,11 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
     power_ui_layer_highlight();
 #endif
 
-    if (ee_clr_timer && timer_elapsed32(ee_clr_timer) > 3000) {
-        hs_reset_settings();
-        ee_clr_timer = 0;
-    }
-
-    if (host_keyboard_led_state().caps_lock)
+    bool caps = host_keyboard_led_state().caps_lock;
+#ifdef CAPS_WORD_ENABLE
+    caps = caps || is_caps_word_on();
+#endif
+    if (caps)
         rgb_matrix_set_color(HS_RGB_INDEX_CAPS, LOCK_LIGHT, LOCK_LIGHT, LOCK_LIGHT);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_CAPS, RGB_BLACK);
@@ -773,6 +770,14 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 
     rgb_matrix_hs_indicator();
 
+    // Fn+Backspace held: Backspace blinks red, faster as the 10 s reset approaches
+    if (ee_clr_timer) {
+        uint32_t held = timer_elapsed32(ee_clr_timer);
+        uint16_t period = held > EE_CLR_HOLD_MS * 3 / 4 ? 100 : 400;
+        uint8_t  led    = g_led_config.matrix_co[1][13];
+        if (led != NO_LED) rgb_matrix_set_color(led, (timer_read32() / period) % 2 ? 0xFF : 0, 0, 0);
+    }
+
 #ifdef WIRELESS_ENABLE
     power_ui_indicators();
     turbo_indicators();
@@ -781,24 +786,6 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
     rgb_matrix_start_rec();
 
     return true;
-}
-
-void hs_reset_settings(void) {
-    eeconfig_init();
-    eeconfig_update_rgb_matrix_default();
-
-    eeconfig_read_keymap(&keymap_config);
-
-#if defined(NKRO_ENABLE) && defined(FORCE_NKRO)
-    keymap_config.nkro = 0;
-    eeconfig_update_keymap(&keymap_config);
-#endif
-
-    if (hs_reset_settings_user() != true) {
-
-        return;
-    }
-    keyboard_post_init_kb();
 }
 
 void lpwr_wakeup_hook(void) {

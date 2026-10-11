@@ -1,0 +1,51 @@
+name: Build firmware
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/qmk/qmk_cli:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone mainline QMK
+        run: |
+          git clone --depth 1 https://github.com/qmk/qmk_firmware /qmk
+          cd /qmk && git submodule update --init --recursive --depth 1
+          qmk config user.qmk_home=/qmk
+
+      - name: Link board files
+        run: |
+          mkdir -p /qmk/keyboards/epomaker
+          ln -s "$GITHUB_WORKSPACE/keyboards/epomaker/galaxy100" /qmk/keyboards/epomaker/galaxy100
+          ln -s "$GITHUB_WORKSPACE/keyboards/epomaker/linker"    /qmk/keyboards/epomaker/linker
+
+      - name: Compile
+        run: |
+          qmk compile -kb epomaker/galaxy100 -km via
+          qmk compile -kb epomaker/galaxy100 -km default
+          cp /qmk/epomaker_galaxy100_via.bin /qmk/epomaker_galaxy100_default.bin .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: galaxy100-firmware
+          path: |
+            epomaker_galaxy100_via.bin
+            epomaker_galaxy100_default.bin
+            via/galaxy100_via.json
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            epomaker_galaxy100_via.bin
+            epomaker_galaxy100_default.bin
+            via/galaxy100_via.json
+          generate_release_notes: true

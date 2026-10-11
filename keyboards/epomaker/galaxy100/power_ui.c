@@ -21,6 +21,7 @@
 #define PUI_BAT_LOW 15         // low-battery warning, %
 #define PUI_BAT_CRITICAL 3     // forced sleep, %
 #define PUI_CRITICAL_HOLD 10000
+#define PUI_LOW_BAT_DIM 10000  // dim after 10 s idle when the battery is low
 #define PUI_PAIR_TIMEOUT (3 * 60 * 1000)
 #define PUI_CONNECTED_SHOW 2000
 
@@ -48,6 +49,8 @@ enum {
     id_reset,
     id_factory_unlock,
     id_factory_reset,
+    id_bat_cap,
+    id_turbo_hz,
 };
 
 enum { HL_OFF, HL_OTHERS_OFF, HL_WHITE, HL_COUNT }; // highlight keys of the held Fn layer
@@ -70,13 +73,20 @@ typedef struct {
     uint8_t socd_pairs;
     uint8_t auto_os;
     uint8_t layer_hl;
+    uint8_t bat_cap;  // index into cap_pct
+    uint8_t turbo_hz;
 } settings_t;
 _Static_assert(4 + sizeof(settings_t) == EECONFIG_KB_DATA_SIZE, "EECONFIG_KB_DATA_SIZE mismatch");
 
-static const settings_t defaults = {SETTINGS_MAGIC, SL_SMART, 0x80, 2, 3, 2, DEBOUNCE, SOCD_OFF, LOC_HIDDEN, 0, SOCD_PAIRS_AD, 0, HL_OTHERS_OFF};
+static const settings_t defaults = {SETTINGS_MAGIC, SL_SMART, 0x80, 2, 3, 2, DEBOUNCE, SOCD_OFF, LOC_HIDDEN, 0, SOCD_PAIRS_AD, 0, HL_OTHERS_OFF, 0, 20};
+
+static const uint8_t cap_pct[] = {100, 75, 50, 25}; // max brightness on battery, % of RGB_MATRIX_MAXIMUM_BRIGHTNESS
+#define TURBO_HZ_MIN 5
+#define TURBO_HZ_MAX 50
 static settings_t       set;
 
 extern uint8_t debounce_rt_ms, debounce_rt_mode; // debounce_rt.c
+extern uint8_t turbo_rate_hz;                     // turbo.c
 void           debounce_rt_reset(void);
 extern bool    charging_state; // galaxy100.c: cable present
 void           lpwr_set_timeout_value(uint32_t timeout);
@@ -84,7 +94,6 @@ void           lpwr_set_timeout_value(uint32_t timeout);
 typedef enum { PUI_FULL, PUI_DIM, PUI_OFF } pui_state_t;
 
 static pui_state_t state       = PUI_FULL;
-static uint8_t     saved_val   = 0;
 static uint32_t    bat_show_at = 0; // Fn+Space pressed (0 = not showing)
 static uint32_t    bat_release_at = 0; // Fn+Space released (0 = still held)
 
@@ -153,9 +162,11 @@ static void apply_settings(void) {
     if (debounce_rt_mode != set.debounce_mode) debounce_rt_reset();
     debounce_rt_ms   = set.debounce_ms;
     debounce_rt_mode = set.debounce_mode;
+    if (set.socd == SOCD_OFF || set.socd_pairs != socd_pairs) socd_release_all();
     socd_mode        = set.socd;
     socd_pairs       = set.socd_pairs;
     lpwr_set_timeout_value(sleep_opts[set.sleep_idx]);
+    turbo_rate_hz = set.turbo_hz;
 }
 
 static void save_settings(void) {
@@ -164,7 +175,7 @@ static void save_settings(void) {
 
 void power_ui_init(void) {
     eeconfig_read_kb_datablock(&set, 4, sizeof(set));
-    if (set.magic != SETTINGS_MAGIC || set.status_mode >= SL_COUNT || set.dim_idx >= ARRAY_SIZE(dim_opts) || set.off_idx >= ARRAY_SIZE(off_opts) || set.sleep_idx >= ARRAY_SIZE(sleep_opts) || set.socd >= SOCD_COUNT || set.status_loc >= LOC_COUNT || set.debounce_mode > 1 || set.socd_pairs >= SOCD_PAIRS_COUNT || set.auto_os > 1 || set.layer_hl >= HL_COUNT || set.debounce_ms > 20) {
+    if (set.magic != SETTINGS_MAGIC || set.status_mode >= SL_COUNT || set.dim_idx >= ARRAY_SIZE(dim_opts) || set.off_idx >= ARRAY_SIZE(off_opts) || set.sleep_idx >= ARRAY_SIZE(sleep_opts) || set.socd >= SOCD_COUNT || set.status_loc >= LOC_COUNT || set.debounce_mode > 1 || set.socd_pairs >= SOCD_PAIRS_COUNT || set.auto_os > 1 || set.layer_hl >= HL_COUNT || set.debounce_ms > 20 || set.bat_cap >= ARRAY_SIZE(cap_pct) || set.turbo_hz < TURBO_HZ_MIN || set.turbo_hz > TURBO_HZ_MAX) {
         set = defaults;
         save_settings();
     }
@@ -178,24 +189,23 @@ static void set_led_power(bool on) {
     gpio_write_pin(LED_POWER_EN_PIN, on);
 }
 
+// Brightness actually shown = the user's value, divided when dimmed, capped on
+// battery ("Max brightness on battery"). Any change we did not make ourselves
+// (Fn+arrows, knob, VIA) becomes the new user value. Called every tick; cheap.
+static uint8_t user_val = 0xFF, applied_val = 0xFF; // 0xFF = not seen yet
+
 static void enter(pui_state_t next) {
-    if (next == state) return;
-    HSV hsv = rgb_matrix_get_hsv();
-    if (state == PUI_FULL) saved_val = hsv.v;
-    switch (next) {
-        case PUI_FULL:
-            set_led_power(true);
-            rgb_matrix_sethsv_noeeprom(hsv.h, hsv.s, saved_val);
-            break;
-        case PUI_DIM:
-            set_led_power(true);
-            rgb_matrix_sethsv_noeeprom(hsv.h, hsv.s, saved_val / PUI_DIM_DIVISOR);
-            break;
-        case PUI_OFF:
-            set_led_power(false);
-            break;
-    }
-    state = next;
+    HSV     hsv = rgb_matrix_get_hsv();
+    uint8_t cap = on_cable() ? 0xFF : (uint16_t)RGB_MATRIX_MAXIMUM_BRIGHTNESS * cap_pct[set.bat_cap] / 100;
+
+    if (hsv.v != applied_val) user_val = hsv.v;
+    uint8_t want = next == PUI_DIM ? user_val / PUI_DIM_DIVISOR : user_val;
+    want         = MIN(want, cap);
+    if (next == PUI_OFF) want = hsv.v; // keep the value, cut the LED power
+    set_led_power(next != PUI_OFF);
+    if (want != hsv.v) rgb_matrix_sethsv_noeeprom(hsv.h, hsv.s, want);
+    applied_val = want;
+    state       = next;
 }
 
 // ---------------------------------------------------------------------------
@@ -358,6 +368,7 @@ void power_ui_task(void) {
     if (bat_show_at) idle = 0;                                             // keep lights up while showing the level
 
     uint32_t dim = dim_opts[set.dim_idx], off = off_opts[set.off_idx];
+    if (bat_low()) dim = dim ? MIN(dim, PUI_LOW_BAT_DIM) : PUI_LOW_BAT_DIM; // low battery: dim early
     if (!on_cable() && off && idle >= off) {
         enter(PUI_OFF);
     } else if (dim && idle >= dim) {
@@ -532,6 +543,8 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
         case id_socd_pairs:  field = &set.socd_pairs, max = SOCD_PAIRS_COUNT - 1; break;
         case id_auto_os:     field = &set.auto_os, max = 1; break;
         case id_layer_hl:    field = &set.layer_hl, max = HL_COUNT - 1; break;
+        case id_bat_cap:     field = &set.bat_cap, max = ARRAY_SIZE(cap_pct) - 1; break;
+        case id_turbo_hz:    field = &set.turbo_hz, max = TURBO_HZ_MAX; break;
     }
 
     if (*value_id == id_battery_text && *command_id == id_custom_get_value) {
@@ -572,7 +585,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
 
     switch (*command_id) {
         case id_custom_set_value:
-            if (value[0] <= max) {
+            if (value[0] <= max && !(field == &set.turbo_hz && value[0] < TURBO_HZ_MIN)) {
                 *field = value[0];
                 apply_settings();
             }
@@ -614,9 +627,9 @@ bool process_detected_host_os_kb(os_variant_t os) {
 void power_ui_layer_highlight(void) {
     uint8_t layer = get_highest_layer(layer_state);
     uint8_t base  = get_highest_layer(default_layer_state);
-    if (set.layer_hl == HL_OFF || layer <= base) return;
+    if (layer <= base) return;
 
-    for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+    for (uint8_t row = 0; set.layer_hl != HL_OFF && row < MATRIX_ROWS; row++) {
         for (uint8_t col = 0; col < MATRIX_COLS; col++) {
             uint8_t led = g_led_config.matrix_co[row][col];
             if (led == NO_LED) continue;
@@ -631,5 +644,11 @@ void power_ui_layer_highlight(void) {
                 rgb_matrix_set_color(led, v, v, v);
             }
         }
+    }
+    // the active wireless connection's mode key (Q/W/E = BT 1-3, R = 2.4G) in its color
+    uint8_t led = mode_key_led(wireless_get_current_devs());
+    if (led != NO_LED) {
+        RGB c = connection_color();
+        rgb_matrix_set_color(led, c.r, c.g, c.b);
     }
 }

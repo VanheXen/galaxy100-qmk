@@ -11,7 +11,7 @@
 #define BAT_FULL_PIN A15
 #define BAT_FULL_STATE 1
 
-#define HS_RGB_INDICATOR_COUNT 104
+#define HS_RGB_INDICATOR_COUNT 8 // concurrent blink jobs
 #define HS_RGB_BAT_COUNT 1
 
 /* Status Indicator Lamp */
@@ -51,11 +51,11 @@
 #define HS_RGB_BLINK_INDEX_2G4 52
 #define HS_RGB_BLINK_INDEX_USB 80
 
-/* Keyboard datablock: confinfo (4) + power_ui settings (13) */
-#define EECONFIG_KB_DATA_SIZE 17
+/* Keyboard datablock: confinfo (4) + power_ui settings (15) */
+#define EECONFIG_KB_DATA_SIZE 19
 
 /* Shown to VIA; must match "firmwareVersion" in the VIA JSON (YYYYMMDDNN) */
-#define VIA_FIRMWARE_VERSION 2026101103
+#define VIA_FIRMWARE_VERSION 2026101104
 
 /* UART */
 #define SERIAL_DRIVER SD3
@@ -69,8 +69,13 @@
 #define UART_TX_PIN C10
 #define UART_TX_PAL_MODE 7
 
+/* Caps Word: tap both Shifts to type one WORD in caps */
+#define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
+
 /* Encoder */
 #define ENCODER_MAP_KEY_DELAY 1
+// ponytail: only pin B (B6) wakes from sleep; pin A (B7) shares EXTI line 7 with the cable pin A7
+#define ENCODER_WAKE_PIN B6
 
 /* SPI */
 #define SPI_DRIVER SPIDQ
@@ -97,8 +102,5 @@
 /* rgb_record */
 #define RGBREC_CHANNEL_NUM 3
 #define ENABLE_RGB_MATRIX_RGBR_PLAY
-#define EECONFIG_CONFINFO_USE_SIZE (4 + 16)
-#define EECONFIG_RGBREC_USE_SIZE (RGBREC_CHANNEL_NUM * MATRIX_ROWS * MATRIX_COLS * 2)
-#define EECONFIG_USER_DATA_SIZE (EECONFIG_RGBREC_USE_SIZE + EECONFIG_CONFINFO_USE_SIZE)
+#define EECONFIG_USER_DATA_SIZE (RGBREC_CHANNEL_NUM * MATRIX_ROWS * MATRIX_COLS * 2)
 #define RGBREC_EECONFIG_ADDR (uint8_t *)(EECONFIG_USER_DATABLOCK)
-#define CONFINFO_EECONFIG_ADDR (uint32_t *)((uint32_t)RGBREC_EECONFIG_ADDR + (uint32_t)EECONFIG_RGBREC_USE_SIZE)

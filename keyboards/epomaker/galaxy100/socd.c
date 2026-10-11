@@ -38,6 +38,14 @@ static void set_active(uint8_t k, bool on) {
         unregister_code(keys[k]);
 }
 
+// turning SOCD off (VIA) while a key is active must not leave it held on the host
+void socd_release_all(void) {
+    for (uint8_t k = 0; k < 8; k++) {
+        set_active(k, false);
+        held[k] = false;
+    }
+}
+
 bool socd_process_record(uint16_t keycode, keyrecord_t *record) {
     if (socd_mode == SOCD_OFF) return true;
 

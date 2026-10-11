@@ -68,7 +68,7 @@
 #define IM_BAT_REQ_LEVEL3_COLOR RGB_MATRIX_BAT_VAL, 0x00, 0x00
 
 void rgbrec_read_current_channel(uint8_t channel);
-void rgbrec_set_close_all(uint8_t h, uint8_t s, uint8_t v);
+void rgbrec_set_close_all(void);
 void rgbrec_play(uint8_t led_min, uint8_t led_max);
 bool rgbrec_end(uint8_t channel);
 bool rgbrec_start(uint8_t channel);

@@ -27,16 +27,11 @@ rgbrec_effects_t p_rgbrec_effects = NULL;
 static uint16_t rgbrec_hs_lists[] = RGB_RECORD_HS_LISTS;
 static uint8_t rgbrec_buffer[MATRIX_ROWS * MATRIX_COLS * 2];
 
-//clang-format off
-
-//clang-format on
 static rgbrec_info_t rgbrec_info = {
     .state   = RGBREC_STATE_OFF,
     .channel = 0,
     .value   = 0xFF,
 };
-
-static uint8_t rgbrec_buffer[MATRIX_ROWS * MATRIX_COLS * 2];
 
 static bool find_matrix_row_col(uint8_t index, uint8_t *row, uint8_t *col) {
     uint8_t i, j;
@@ -165,18 +160,9 @@ void rgbrec_play(uint8_t led_min, uint8_t led_max) {
     }
 }
 
-void rgbrec_set_close_all(uint8_t h, uint8_t s, uint8_t v) {
-
-    if (!h && !s && !v) {
-        memset(rgbrec_buffer, 0, sizeof(rgbrec_buffer));
-    } else {
-        for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
-            for (uint8_t col = 0; col < MATRIX_COLS; col++) {
-                rgbrec_buffer[row * MATRIX_COLS * col * 2]       = s;
-                rgbrec_buffer[(row * MATRIX_COLS * col * 2) + 1] = v;
-            }
-        }
-    }
+// clear the recording buffer (all keys off)
+void rgbrec_set_close_all(void) {
+    memset(rgbrec_buffer, 0, sizeof(rgbrec_buffer));
 }
 
 void rgbrec_read_current_channel(uint8_t channel) {
@@ -230,7 +216,3 @@ bool rgbrec_register_record(uint16_t keycode, keyrecord_t *record) {
 void eeconfig_init_user_datablock(void) {
 
 }
-
-
-
-

@@ -7,9 +7,7 @@
 #include QMK_KEYBOARD_H
 #include "turbo.h"
 
-#ifndef TURBO_RATE_HZ
-#    define TURBO_RATE_HZ 20 // presses per second
-#endif
+uint8_t turbo_rate_hz = 20; // presses per second, set from VIA (power_ui.c)
 
 typedef enum { TURBO_OFF, TURBO_ARMED, TURBO_ON } turbo_state_t;
 
@@ -61,7 +59,7 @@ bool turbo_process_record(uint16_t keycode, keyrecord_t *record) {
 void turbo_task(void) {
     if (state != TURBO_ON) return;
     if ((int32_t)(timer_read32() - next_toggle) < 0) return;
-    next_toggle += 500 / TURBO_RATE_HZ; // half a period down, half up
+    next_toggle += 500 / turbo_rate_hz; // half a period down, half up
     if (down)
         unregister_code16(turbo_kc);
     else

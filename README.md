@@ -16,20 +16,27 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
   - *Lighting → Backlight*: brightness, all 44 QMK effects + Custom Paint, speed, color
   - *Lighting → Indicators*: Fn-layer highlight; status light (what it shows: smart events,
     connection, battery, lock keys…; where: hidden LEDs / Esc / Left Ctrl; brightness)
-  - *Keyboard → Battery and power*: battery readout, dim, lights off on battery, deep sleep
+  - *Keyboard → Battery and power*: battery readout, dim, lights off on battery, deep sleep,
+    max brightness on battery
   - *Keyboard → Typing*: debounce mode (defer / eager) and time, SOCD (last / first wins,
-    neutral) and its keys, auto Win/Mac on cable
+    neutral) and its keys, turbo rate, auto Win/Mac on cable
   - *Keyboard → Reset*: "Reset Keyboard and indicator settings" (keeps keymap and lighting);
     "Reset everything to defaults" behind an unlock toggle (the firmware is not changed)
   - VIA follows changes made from the keyboard (live refresh of sliders / effect)
-- **Battery**: Fn+Space shows the level on the number row; low / critical battery handling;
-  charging indication; smoothed readings.
+- **Battery**: Fn+Space shows the level on the number row; low battery dims the lights early;
+  critical battery forces sleep; charging indication; smoothed readings; brightness cap on battery.
 - **Turbo**: Fn+Right Alt, then press a key: it auto-fires until Fn+Right Alt again.
-- Pairing feedback on the mode keys, hold-to-confirm Win/Mac switch, Fn+knob brightness.
+- **Caps Word** (tap both Shifts), Repeat Key (`QK_REP` via VIA *Any*).
+- Pairing feedback on the mode keys; while Fn is held the active connection's key (Q/W/E/R)
+  lights in its color; hold-to-confirm Win/Mac switch; Fn+knob brightness; knob turn wakes
+  from sleep.
 - Caps / Num / Win lock indicators at full brightness, visible even with the backlight off.
 - Firmware updates keep your VIA keymap, macros and settings (see Flash).
 
 ## Build
+
+Prebuilt `.bin` files and the VIA JSON are attached to each
+[release](../../releases) (built by GitHub Actions from mainline QMK). To build yourself:
 
 ```sh
 git clone --depth 1 https://github.com/qmk/qmk_firmware
@@ -50,7 +57,8 @@ cable, back switch on USB), then run `wb32-dfu-updater_cli -U stock.bin -Z 26214
    - **Fn + Right Shift + Esc**: keeps keymap, macros and settings (`SKIP_VERSION = yes` keeps
      VIA's data valid across builds);
    - or hold **Esc** while plugging in the cable: resets everything to the firmware defaults.
-     Needed when an update changes the settings storage layout (noted in the changelog).
+     Needed when an update changes the settings storage layout (noted in the
+     [changelog](CHANGELOG.md)).
 3. `wb32-dfu-updater_cli -w -D epomaker_galaxy100_via.bin` (`-w` waits for the bootloader),
    or `qmk flash`.
 
@@ -77,6 +85,7 @@ Design → Load. New controls are hidden on older firmware via `{id_firmware_ver
 | Fn + B | NKRO |
 | Fn + knob | brightness |
 | Fn + Right Shift + Esc | bootloader |
+| Fn + Backspace (hold 10 s) | reset everything to defaults (same as the VIA button) |
 
 ## Credits and license
 
@@ -87,13 +96,5 @@ GPL-2.0-or-later. Board files from Epomaker's published Galaxy100 source; wirele
 
 ## Changelog
 
-Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`).
-
-- **JSON update** (no reflash): menus regrouped into Backlight / Indicators / Battery and power /
-  Typing / Reset; resets renamed so they can't be mistaken for a stock-firmware restore.
-- **2026101103**: VIA "Reset everything to defaults" behind an unlock toggle; VIA live refresh waits for changes
-  to settle (fixes the effect name lagging one step); lock indicators at full brightness.
-- **2026101102**: turbo (Fn+Right Alt), Fn-layer highlight, Fn+knob brightness, battery
-  readout and restore-defaults button in VIA, VIA live refresh. *Storage layout changed:
-  Esc-hold reset needed when coming from older builds.*
-- **20261011**: first release of the port.
+See [CHANGELOG.md](CHANGELOG.md). Hardware findings (pins, switch, LED map, stock dump offsets)
+are in [docs/hardware.md](docs/hardware.md).

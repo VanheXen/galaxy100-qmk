@@ -139,6 +139,13 @@ void lpwr_exti_init_hook(void) {
     gpio_set_pin_input(HS_BAT_CABLE_PIN);
     waitInputPinDelay();
     palEnableLineEvent(HS_BAT_CABLE_PIN, PAL_EVENT_MODE_RISING_EDGE);
+
+#ifdef ENCODER_WAKE_PIN
+    // knob turn wakes from deep sleep (any edge; the default palcallback case reports it as a key)
+    gpio_set_pin_input_high(ENCODER_WAKE_PIN);
+    waitInputPinDelay();
+    palEnableLineEvent(ENCODER_WAKE_PIN, PAL_EVENT_MODE_BOTH_EDGES);
+#endif
 }
 
 void palcallback_cb(uint8_t line) {
