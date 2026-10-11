@@ -1,21 +1,23 @@
-# Galaxy100
+# Galaxy100 (WB32 revision)
 
-* Keyboard Maintainer: [Epomaker](https://github.com/Epomaker)
-* Hardware Supported: Galaxy100
+Epomaker Galaxy100, WB32FQ95 MCU, USB `342D:E489`, wired / 2.4G / Bluetooth.
+
+* Keyboard Maintainer: [Epomaker](https://github.com/Epomaker) (original board files), community port
+* Hardware Supported: Galaxy100 with WB32FQ95 (not the ES32 revision, USB `36B0:xxxx`)
 * Hardware Availability: Galaxy100
 
 Make example for this keyboard (after setting up your build environment):
 
-    make epomaker/galaxy100:default
-        
+    make epomaker/galaxy100:via
+
 Flashing example for this keyboard:
 
-    make epomaker/galaxy100:default:flash
+    make epomaker/galaxy100:via:flash
 
-To reset the board into bootloader mode, do one of the following:
+To enter the bootloader, do one of the following (back switch on USB):
 
-* Hold the Reset switch mounted on the bottom side of the PCB while connecting the USB cable
-* Hold the Escape key while connecting the USB cable (also erases persistent settings)
-* Fn+R_Shift+Esc will reset the board to bootloader mode if you have flashed the default QMK keymap
+* **Fn + Right Shift + Esc**: keeps keymap, macros and settings
+* Hold **Esc** while connecting the USB cable: also resets all settings to defaults
+* Hold the reset switch on the bottom of the PCB while connecting the USB cable
 
-See the [build environment setup](https://docs.qmk.fm/#/getting_started_build_tools) and the [make instructions](https://docs.qmk.fm/#/getting_started_make_guide) for more information. Brand new to QMK? Start with our [Complete Newbs Guide](https://docs.qmk.fm/#/newbs).
+See the project README for features, the VIA definition and the changelog.

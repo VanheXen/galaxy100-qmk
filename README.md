@@ -18,11 +18,14 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
     (hidden LEDs / Esc / Left Ctrl), brightness
   - power: dim, lights off on battery, deep sleep timeouts; auto Win/Mac on cable
   - typing: debounce mode (defer / eager) and time, SOCD (last / first wins, neutral)
-  - battery readout, reset to defaults
+  - battery readout, restore Keyboard-tab defaults, factory reset (behind an unlock toggle)
+  - VIA follows changes made from the keyboard (live refresh of sliders / effect)
 - **Battery**: Fn+Space shows the level on the number row; low / critical battery handling;
   charging indication; smoothed readings.
 - **Turbo**: Fn+Right Alt, then press a key: it auto-fires until Fn+Right Alt again.
 - Pairing feedback on the mode keys, hold-to-confirm Win/Mac switch, Fn+knob brightness.
+- Caps / Num / Win lock indicators at full brightness, visible even with the backlight off.
+- Firmware updates keep your VIA keymap, macros and settings (see Flash).
 
 ## Build
 
@@ -35,9 +38,16 @@ qmk compile -kb epomaker/galaxy100 -km via
 
 ## Flash
 
-1. Enter the bootloader: **Fn + Right Shift + Esc** (keeps settings), or hold **Esc** while
-   plugging in the cable (resets settings). Back switch on **USB**.
-2. `wb32-dfu-updater_cli -D epomaker_galaxy100_via.bin` (or `qmk flash`).
+1. Back switch on **USB**, cable connected.
+2. Enter the bootloader:
+   - **Fn + Right Shift + Esc**: keeps keymap, macros and settings (`SKIP_VERSION = yes` keeps
+     VIA's data valid across builds);
+   - or hold **Esc** while plugging in the cable: resets everything to the firmware defaults.
+     Needed when an update changes the settings storage layout (noted in the changelog).
+3. `wb32-dfu-updater_cli -w -D epomaker_galaxy100_via.bin` (`-w` waits for the bootloader),
+   or `qmk flash`.
+
+A factory reset is also available from VIA (Keyboard → Info and reset → Unlock factory reset).
 
 **Back up your stock firmware first**: `wb32-dfu-updater_cli -U stock.bin -Z 262144` in bootloader
 mode. Never use `-t` (it disables read protection and erases the flash).
@@ -72,3 +82,14 @@ GPL-2.0-or-later. Board files from Epomaker's published Galaxy100 source; wirele
 (`keyboards/epomaker/linker`) from Epomaker / isuua as maintained in
 [carlosedp/qmk_firmware](https://github.com/carlosedp/qmk_firmware). Ideas borrowed from
 [Keychron's QMK fork](https://github.com/Keychron/qmk_firmware).
+
+## Changelog
+
+Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`).
+
+- **2026101103**: VIA factory reset behind an unlock toggle; VIA live refresh waits for changes
+  to settle (fixes the effect name lagging one step); lock indicators at full brightness.
+- **2026101102**: turbo (Fn+Right Alt), Fn-layer highlight, Fn+knob brightness, battery
+  readout and restore-defaults button in VIA, VIA live refresh. *Storage layout changed:
+  Esc-hold reset needed when coming from older builds.*
+- **20261011**: first release of the port.
