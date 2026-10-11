@@ -46,6 +46,8 @@ enum {
     id_layer_hl,
     id_battery_text,
     id_reset,
+    id_factory_unlock,
+    id_factory_reset,
 };
 
 enum { HL_OFF, HL_OTHERS_OFF, HL_WHITE, HL_COUNT }; // highlight keys of the held Fn layer
@@ -534,6 +536,21 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
 
     if (*value_id == id_battery_text && *command_id == id_custom_get_value) {
         battery_text((char *)value, length - 3);
+        return;
+    }
+    // factory reset: only after the unlock toggle (VIA has no confirm dialog)
+    static uint8_t factory_unlocked = 0;
+    if (*value_id == id_factory_unlock) {
+        if (*command_id == id_custom_get_value) value[0] = factory_unlocked;
+        if (*command_id == id_custom_set_value) factory_unlocked = value[0] ? 1 : 0;
+        return; // save: nothing to store, the unlock is never persisted
+    }
+    if (*value_id == id_factory_reset) {
+        if (*command_id == id_custom_get_value) value[0] = 0;
+        if (*command_id == id_custom_set_value && factory_unlocked) {
+            eeconfig_disable();    // everything back to this firmware's defaults on next boot
+            soft_reset_keyboard(); // (keymap, macros, lighting, settings; pairings untouched)
+        }
         return;
     }
     if (*value_id == id_reset && *command_id == id_custom_get_value) {

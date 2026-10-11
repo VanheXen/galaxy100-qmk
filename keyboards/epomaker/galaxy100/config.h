@@ -55,7 +55,7 @@
 #define EECONFIG_KB_DATA_SIZE 17
 
 /* Shown to VIA; must match "firmwareVersion" in the VIA JSON (YYYYMMDDNN) */
-#define VIA_FIRMWARE_VERSION 2026101102
+#define VIA_FIRMWARE_VERSION 2026101103
 
 /* UART */
 #define SERIAL_DRIVER SD3
