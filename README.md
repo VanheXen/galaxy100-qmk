@@ -12,14 +12,15 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
 - **Correct LED map** (104 LEDs, including the 3 status LEDs under the right arrow), extracted
   from the stock firmware; Epomaker's published map was off by 3.
 - **Back mode switch** (BT / USB / 2.4G) supported; Epomaker's published source left its pins out.
-- **VIA menus** (Lighting / Keyboard tabs):
-  - backlight with all 44 QMK effects + Custom Paint, Fn-layer highlight
-  - status light: what it shows (smart events, connection, battery, lock keys…), where
-    (hidden LEDs / Esc / Left Ctrl), brightness
-  - power: dim, lights off on battery, deep sleep timeouts; auto Win/Mac on cable
-  - typing: debounce mode (defer / eager) and time, SOCD (last / first wins, neutral)
-  - battery readout; "Reset Keyboard and indicator settings"; "Reset everything to defaults"
-    (keymap, macros, lighting, settings; behind an unlock toggle; the firmware is not changed)
+- **VIA menus**:
+  - *Lighting → Backlight*: brightness, all 44 QMK effects + Custom Paint, speed, color
+  - *Lighting → Indicators*: Fn-layer highlight; status light (what it shows: smart events,
+    connection, battery, lock keys…; where: hidden LEDs / Esc / Left Ctrl; brightness)
+  - *Keyboard → Battery and power*: battery readout, dim, lights off on battery, deep sleep
+  - *Keyboard → Typing*: debounce mode (defer / eager) and time, SOCD (last / first wins,
+    neutral) and its keys, auto Win/Mac on cable
+  - *Keyboard → Reset*: "Reset Keyboard and indicator settings" (keeps keymap and lighting);
+    "Reset everything to defaults" behind an unlock toggle (the firmware is not changed)
   - VIA follows changes made from the keyboard (live refresh of sliders / effect)
 - **Battery**: Fn+Space shows the level on the number row; low / critical battery handling;
   charging indication; smoothed readings.
@@ -88,6 +89,8 @@ GPL-2.0-or-later. Board files from Epomaker's published Galaxy100 source; wirele
 
 Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`).
 
+- **JSON update** (no reflash): menus regrouped into Backlight / Indicators / Battery and power /
+  Typing / Reset; resets renamed so they can't be mistaken for a stock-firmware restore.
 - **2026101103**: VIA "Reset everything to defaults" behind an unlock toggle; VIA live refresh waits for changes
   to settle (fixes the effect name lagging one step); lock indicators at full brightness.
 - **2026101102**: turbo (Fn+Right Alt), Fn-layer highlight, Fn+knob brightness, battery
