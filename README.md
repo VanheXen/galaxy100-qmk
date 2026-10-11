@@ -18,8 +18,8 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
     (hidden LEDs / Esc / Left Ctrl), brightness
   - power: dim, lights off on battery, deep sleep timeouts; auto Win/Mac on cable
   - typing: debounce mode (defer / eager) and time, SOCD (last / first wins, neutral)
-  - battery readout, restore Keyboard-tab defaults, factory reset of all settings (behind an
-    unlock toggle; the firmware itself is not changed)
+  - battery readout; "Reset Keyboard and indicator settings"; "Reset everything to defaults"
+    (keymap, macros, lighting, settings; behind an unlock toggle; the firmware is not changed)
   - VIA follows changes made from the keyboard (live refresh of sliders / effect)
 - **Battery**: Fn+Space shows the level on the number row; low / critical battery handling;
   charging indication; smoothed readings.
@@ -88,7 +88,7 @@ GPL-2.0-or-later. Board files from Epomaker's published Galaxy100 source; wirele
 
 Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`).
 
-- **2026101103**: VIA factory reset behind an unlock toggle; VIA live refresh waits for changes
+- **2026101103**: VIA "Reset everything to defaults" behind an unlock toggle; VIA live refresh waits for changes
   to settle (fixes the effect name lagging one step); lock indicators at full brightness.
 - **2026101102**: turbo (Fn+Right Alt), Fn-layer highlight, Fn+knob brightness, battery
   readout and restore-defaults button in VIA, VIA live refresh. *Storage layout changed:

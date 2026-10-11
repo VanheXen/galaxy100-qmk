@@ -588,7 +588,7 @@
               "showIf": "{id_firmware_version} >= 2026101102",
               "content": [
                 {
-                  "label": "Restore Keyboard tab and indicator defaults (keeps keymap and lighting)",
+                  "label": "Reset Keyboard and indicator settings (keeps keymap and lighting)",
                   "type": "button",
                   "options": [
                     1
@@ -605,7 +605,7 @@
               "showIf": "{id_firmware_version} >= 2026101103",
               "content": [
                 {
-                  "label": "Unlock factory reset",
+                  "label": "Unlock \"Reset everything\"",
                   "type": "toggle",
                   "content": [
                     "id_factory_unlock",
@@ -615,7 +615,7 @@
                 },
                 {
                   "showIf": "{id_factory_unlock} == 1",
-                  "label": "Factory reset settings: keymap, macros, lighting, all options (firmware unchanged, keyboard restarts)",
+                  "label": "Reset everything to defaults: keymap, macros, lighting, settings (keyboard restarts)",
                   "type": "button",
                   "options": [
                     1
