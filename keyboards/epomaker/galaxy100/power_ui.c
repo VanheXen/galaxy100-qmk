@@ -263,7 +263,8 @@ static uint32_t critical_since = 0;
 static uint32_t via_active_at  = 0;
 
 #ifdef VIA_ENABLE
-static bool via_ui_dirty = false;
+static bool     via_ui_dirty = false;
+static uint32_t via_dirty_at = 0; // last keyboard-side change
 
 // "87 % - charging" (ASCII, null terminated)
 static void battery_text(char *out, uint8_t size) {
@@ -287,10 +288,9 @@ static void battery_text(char *out, uint8_t size) {
 // (VIA listens for 0x16/0x01 since protocol 12; sent only while VIA is in use.)
 void replaced_hid_send(uint8_t *data, uint8_t length); // linker/wireless/md_raw.c: USB or wireless
 static void via_ui_sync_task(void) {
-    static uint32_t last = 0;
-    if (!via_ui_dirty || timer_elapsed32(last) < 200) return;
+    // wait until changes have settled (150 ms after the last one), so VIA reads final values
+    if (!via_ui_dirty || timer_elapsed32(via_dirty_at) < 150) return;
     via_ui_dirty = false;
-    last         = timer_read32();
     if (!via_active_at || timer_elapsed32(via_active_at) > 600000) return; // VIA not used in the last 10 min
     uint8_t buf[32] = {0x16, 0x01}; // VIA packet size
     replaced_hid_send(buf, sizeof(buf));
@@ -369,7 +369,10 @@ bool power_ui_process_record(uint16_t keycode, keyrecord_t *record) {
     // restore brightness before the key runs, so Fn+arrows adjust the real value
     if (record->event.pressed) enter(PUI_FULL);
 #ifdef VIA_ENABLE
-    if (record->event.pressed && keycode >= QK_RGB_MATRIX_ON && keycode <= QK_RGB_MATRIX_SPEED_DOWN) via_ui_dirty = true;
+    if (keycode >= QK_RGB_MATRIX_ON && keycode <= QK_RGB_MATRIX_SPEED_DOWN) {
+        via_ui_dirty = true; // press and release both restart the settle timer
+        via_dirty_at = timer_read32();
+    }
 #endif
 
     if (keycode == BAT_CHK) {
@@ -542,6 +545,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
         apply_settings();
         save_settings();
         via_ui_dirty = true; // make VIA re-read the restored values
+        via_dirty_at = timer_read32();
         return;
     }
     if (!field && *command_id != id_custom_save) {
