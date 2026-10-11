@@ -33,14 +33,13 @@ jobs:
         run: |
           qmk compile -kb epomaker/galaxy100 -km via
           qmk compile -kb epomaker/galaxy100 -km default
-          cp /qmk/epomaker_galaxy100_via.bin /qmk/epomaker_galaxy100_default.bin .
+          cp /qmk/epomaker_galaxy100_via.bin .   # default keymap: compile check only
 
       - uses: actions/upload-artifact@v4
         with:
           name: galaxy100-firmware
           path: |
             epomaker_galaxy100_via.bin
-            epomaker_galaxy100_default.bin
             via/galaxy100_via.json
 
       - name: Release
@@ -49,6 +48,5 @@ jobs:
         with:
           files: |
             epomaker_galaxy100_via.bin
-            epomaker_galaxy100_default.bin
             via/galaxy100_via.json
           generate_release_notes: true
