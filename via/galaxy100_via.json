@@ -610,7 +610,7 @@
                 },
                 {
                   "showIf": "{id_factory_unlock} == 1",
-                  "label": "Factory reset: keymap, macros, lighting, all settings (keyboard restarts)",
+                  "label": "Factory reset settings: keymap, macros, lighting, all options (firmware unchanged, keyboard restarts)",
                   "type": "button",
                   "options": [
                     1

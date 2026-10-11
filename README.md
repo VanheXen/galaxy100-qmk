@@ -18,7 +18,8 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
     (hidden LEDs / Esc / Left Ctrl), brightness
   - power: dim, lights off on battery, deep sleep timeouts; auto Win/Mac on cable
   - typing: debounce mode (defer / eager) and time, SOCD (last / first wins, neutral)
-  - battery readout, restore Keyboard-tab defaults, factory reset (behind an unlock toggle)
+  - battery readout, restore Keyboard-tab defaults, factory reset of all settings (behind an
+    unlock toggle; the firmware itself is not changed)
   - VIA follows changes made from the keyboard (live refresh of sliders / effect)
 - **Battery**: Fn+Space shows the level on the number row; low / critical battery handling;
   charging indication; smoothed readings.
@@ -52,7 +53,9 @@ cable, back switch on USB), then run `wb32-dfu-updater_cli -U stock.bin -Z 26214
 3. `wb32-dfu-updater_cli -w -D epomaker_galaxy100_via.bin` (`-w` waits for the bootloader),
    or `qmk flash`.
 
-A factory reset is also available from VIA (Keyboard → Info and reset → Unlock factory reset).
+VIA also has a **factory reset** (Keyboard → Info and reset → Unlock factory reset): it resets
+keymap, macros, lighting and settings to this firmware's defaults. It does **not** change the
+firmware; to go back to Epomaker's stock firmware, flash your `stock.bin` backup.
 
 ## VIA
 
