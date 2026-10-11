@@ -1,0 +1,908 @@
+{
+  "name": "Epomaker Galaxy100 (QMK)",
+  "vendorId": "0x342d",
+  "productId": "0xe489",
+  "keycodes": [
+    "qmk_rgb_matrix_keycodes"
+  ],
+  "menus": [
+    {
+      "label": "Lighting",
+      "content": [
+        {
+          "label": "Backlight",
+          "content": [
+            {
+              "label": "Brightness",
+              "type": "range",
+              "options": [
+                0,
+                255
+              ],
+              "content": [
+                "id_qmk_rgb_matrix_brightness",
+                3,
+                1
+              ]
+            },
+            {
+              "label": "Effect",
+              "type": "dropdown",
+              "content": [
+                "id_qmk_rgb_matrix_effect",
+                3,
+                2
+              ],
+              "options": [
+                [
+                  "Off",
+                  0
+                ],
+                [
+                  "Solid Color",
+                  1
+                ],
+                [
+                  "Alphas / Mods (speed = mod color)",
+                  2
+                ],
+                [
+                  "Gradient Up Down",
+                  3
+                ],
+                [
+                  "Gradient Left Right",
+                  4
+                ],
+                [
+                  "Breathing",
+                  5
+                ],
+                [
+                  "Band Sat",
+                  6
+                ],
+                [
+                  "Band Val",
+                  7
+                ],
+                [
+                  "Band Pinwheel Sat",
+                  8
+                ],
+                [
+                  "Band Pinwheel Val",
+                  9
+                ],
+                [
+                  "Band Spiral Sat",
+                  10
+                ],
+                [
+                  "Band Spiral Val",
+                  11
+                ],
+                [
+                  "Cycle All",
+                  12
+                ],
+                [
+                  "Cycle Left Right",
+                  13
+                ],
+                [
+                  "Cycle Up Down",
+                  14
+                ],
+                [
+                  "Rainbow Moving Chevron",
+                  15
+                ],
+                [
+                  "Cycle Out In",
+                  16
+                ],
+                [
+                  "Cycle Out In Dual",
+                  17
+                ],
+                [
+                  "Cycle Pinwheel",
+                  18
+                ],
+                [
+                  "Cycle Spiral",
+                  19
+                ],
+                [
+                  "Dual Beacon",
+                  20
+                ],
+                [
+                  "Rainbow Beacon",
+                  21
+                ],
+                [
+                  "Rainbow Pinwheels",
+                  22
+                ],
+                [
+                  "Flower Blooming",
+                  23
+                ],
+                [
+                  "Raindrops",
+                  24
+                ],
+                [
+                  "Jellybean Raindrops",
+                  25
+                ],
+                [
+                  "Hue Breathing",
+                  26
+                ],
+                [
+                  "Hue Pendulum",
+                  27
+                ],
+                [
+                  "Hue Wave",
+                  28
+                ],
+                [
+                  "Pixel Rain",
+                  29
+                ],
+                [
+                  "Pixel Flow",
+                  30
+                ],
+                [
+                  "Pixel Fractal",
+                  31
+                ],
+                [
+                  "Typing Heatmap",
+                  32
+                ],
+                [
+                  "Digital Rain",
+                  33
+                ],
+                [
+                  "Reactive Simple",
+                  34
+                ],
+                [
+                  "Reactive",
+                  35
+                ],
+                [
+                  "Splash",
+                  36
+                ],
+                [
+                  "Multisplash",
+                  37
+                ],
+                [
+                  "Solid Splash",
+                  38
+                ],
+                [
+                  "Solid Multisplash",
+                  39
+                ],
+                [
+                  "Starlight Smooth",
+                  40
+                ],
+                [
+                  "Starlight",
+                  41
+                ],
+                [
+                  "Starlight Dual Sat",
+                  42
+                ],
+                [
+                  "Starlight Dual Hue",
+                  43
+                ],
+                [
+                  "Riverflow",
+                  44
+                ],
+                [
+                  "Custom Paint",
+                  45
+                ]
+              ]
+            },
+            {
+              "showIf": "{id_qmk_rgb_matrix_effect} >= 2 && {id_qmk_rgb_matrix_effect} < 45",
+              "label": "Effect Speed",
+              "type": "range",
+              "options": [
+                0,
+                255
+              ],
+              "content": [
+                "id_qmk_rgb_matrix_effect_speed",
+                3,
+                3
+              ]
+            },
+            {
+              "showIf": "({id_qmk_rgb_matrix_effect} >= 1 && {id_qmk_rgb_matrix_effect} <= 11) || {id_qmk_rgb_matrix_effect} == 20 || ({id_qmk_rgb_matrix_effect} >= 26 && {id_qmk_rgb_matrix_effect} <= 28) || ({id_qmk_rgb_matrix_effect} >= 34 && {id_qmk_rgb_matrix_effect} <= 35) || ({id_qmk_rgb_matrix_effect} >= 38 && {id_qmk_rgb_matrix_effect} <= 44)",
+              "label": "Color",
+              "type": "color",
+              "content": [
+                "id_qmk_rgb_matrix_color",
+                3,
+                4
+              ]
+            },
+            {
+              "showIf": "{id_firmware_version} >= 2026101102",
+              "content": [
+                {
+                  "label": "While holding Fn",
+                  "type": "dropdown",
+                  "content": [
+                    "id_layer_hl",
+                    0,
+                    12
+                  ],
+                  "options": [
+                    [
+                      "Normal lighting",
+                      0
+                    ],
+                    [
+                      "Unused keys go dark",
+                      1
+                    ],
+                    [
+                      "Used keys white, others dark",
+                      2
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Status light",
+          "content": [
+            {
+              "label": "Shows",
+              "type": "dropdown",
+              "content": [
+                "id_status_mode",
+                0,
+                1
+              ],
+              "options": [
+                [
+                  "Smart: only on events (pairing, charging, low battery\u2026)",
+                  0
+                ],
+                [
+                  "Connection: BT blue, 2.4G green, USB white",
+                  1
+                ],
+                [
+                  "Battery level",
+                  2
+                ],
+                [
+                  "Lock keys: Win lock red, Caps white",
+                  3
+                ],
+                [
+                  "Follow lighting effect",
+                  4
+                ],
+                [
+                  "Off",
+                  5
+                ]
+              ]
+            },
+            {
+              "showIf": "{id_status_mode} != 4 && {id_status_mode} != 5",
+              "content": [
+                {
+                  "label": "Location",
+                  "type": "dropdown",
+                  "content": [
+                    "id_status_loc",
+                    0,
+                    8
+                  ],
+                  "options": [
+                    [
+                      "Hidden light under the right arrow",
+                      0
+                    ],
+                    [
+                      "Esc key",
+                      1
+                    ],
+                    [
+                      "Left Ctrl key",
+                      2
+                    ]
+                  ]
+                },
+                {
+                  "label": "Brightness",
+                  "type": "range",
+                  "options": [
+                    8,
+                    255
+                  ],
+                  "content": [
+                    "id_status_val",
+                    0,
+                    2
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Keyboard",
+      "content": [
+        {
+          "label": "Power and system",
+          "content": [
+            {
+              "label": "Dim lights after",
+              "type": "dropdown",
+              "content": [
+                "id_dim_after",
+                0,
+                3
+              ],
+              "options": [
+                [
+                  "Never",
+                  0
+                ],
+                [
+                  "30 seconds",
+                  1
+                ],
+                [
+                  "1 minute",
+                  2
+                ],
+                [
+                  "2 minutes",
+                  3
+                ],
+                [
+                  "5 minutes",
+                  4
+                ],
+                [
+                  "10 minutes",
+                  5
+                ]
+              ]
+            },
+            {
+              "label": "Lights off on battery after",
+              "type": "dropdown",
+              "content": [
+                "id_off_after",
+                0,
+                4
+              ],
+              "options": [
+                [
+                  "Never",
+                  0
+                ],
+                [
+                  "1 minute",
+                  1
+                ],
+                [
+                  "2 minutes",
+                  2
+                ],
+                [
+                  "5 minutes",
+                  3
+                ],
+                [
+                  "10 minutes",
+                  4
+                ],
+                [
+                  "30 minutes",
+                  5
+                ]
+              ]
+            },
+            {
+              "label": "Deep sleep on battery after",
+              "type": "dropdown",
+              "content": [
+                "id_sleep_after",
+                0,
+                5
+              ],
+              "options": [
+                [
+                  "Never",
+                  0
+                ],
+                [
+                  "10 minutes",
+                  1
+                ],
+                [
+                  "30 minutes",
+                  2
+                ],
+                [
+                  "1 hour",
+                  3
+                ],
+                [
+                  "2 hours",
+                  4
+                ]
+              ]
+            },
+            {
+              "label": "Auto Win/Mac on cable",
+              "type": "toggle",
+              "content": [
+                "id_auto_os",
+                0,
+                11
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Typing",
+          "content": [
+            {
+              "label": "Debounce mode",
+              "type": "dropdown",
+              "content": [
+                "id_debounce_mode",
+                0,
+                9
+              ],
+              "options": [
+                [
+                  "Defer: wait until stable (safest)",
+                  0
+                ],
+                [
+                  "Eager: instant, then ignore bounces (lowest latency)",
+                  1
+                ]
+              ]
+            },
+            {
+              "label": "Debounce time (ms)",
+              "type": "range",
+              "options": [
+                0,
+                20
+              ],
+              "content": [
+                "id_debounce",
+                0,
+                6
+              ]
+            },
+            {
+              "label": "SOCD",
+              "type": "dropdown",
+              "content": [
+                "id_socd",
+                0,
+                7
+              ],
+              "options": [
+                [
+                  "Off",
+                  0
+                ],
+                [
+                  "Last key wins",
+                  1
+                ],
+                [
+                  "Neutral: both cancel",
+                  2
+                ],
+                [
+                  "First key wins",
+                  3
+                ]
+              ]
+            },
+            {
+              "showIf": "{id_socd} != 0",
+              "label": "SOCD keys",
+              "type": "dropdown",
+              "content": [
+                "id_socd_pairs",
+                0,
+                10
+              ],
+              "options": [
+                [
+                  "A + D",
+                  0
+                ],
+                [
+                  "A + D, W + S",
+                  1
+                ],
+                [
+                  "Arrows",
+                  2
+                ],
+                [
+                  "WASD and arrows",
+                  3
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Info and reset",
+          "content": [
+            {
+              "showIf": "{id_firmware_version} >= 2026101102",
+              "content": [
+                {
+                  "label": "Battery",
+                  "type": "label",
+                  "content": [
+                    "id_battery_text",
+                    0,
+                    13
+                  ]
+                },
+                {
+                  "label": "Restore power, typing and status light defaults",
+                  "type": "button",
+                  "options": [
+                    1
+                  ],
+                  "content": [
+                    "id_reset",
+                    0,
+                    14
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "customKeycodes": [
+    {
+      "name": "Bluetooth Host 1",
+      "title": "Bluetooth host 1. Hold 3 s to pair (switch on BT)",
+      "shortName": "BTH1"
+    },
+    {
+      "name": "Bluetooth Host 2",
+      "title": "Bluetooth host 2. Hold 3 s to pair (switch on BT)",
+      "shortName": "BTH2"
+    },
+    {
+      "name": "Bluetooth Host 3",
+      "title": "Bluetooth host 3. Hold 3 s to pair (switch on BT)",
+      "shortName": "BTH3"
+    },
+    {
+      "name": "2.4G Dongle",
+      "title": "2.4G dongle. Hold 3 s to pair (switch on 2.4G)",
+      "shortName": "2.4G"
+    },
+    {
+      "name": "USB Mode",
+      "title": "USB mode",
+      "shortName": "USB"
+    },
+    {
+      "name": "Paint Slot 1",
+      "title": "Custom Paint: show slot 1 (Fn+Home)",
+      "shortName": "Pnt1"
+    },
+    {
+      "name": "Paint Slot 2",
+      "title": "Custom Paint: show slot 2 (Fn+End)",
+      "shortName": "Pnt2"
+    },
+    {
+      "name": "Paint Slot 3",
+      "title": "Custom Paint: show slot 3 (Fn+PrtSc)",
+      "shortName": "Pnt3"
+    },
+    {
+      "name": "Paint Record",
+      "title": "Custom Paint: start/stop painting; press keys to cycle their color (Fn+Ins)",
+      "shortName": "PntRec"
+    },
+    {
+      "name": "Battery Level",
+      "title": "Show battery level on the number row",
+      "shortName": "Batt"
+    },
+    {
+      "name": "Turbo",
+      "title": "Turbo: press, then the next key fires by itself until you press Turbo again",
+      "shortName": "Turbo"
+    }
+  ],
+  "matrix": {
+    "rows": 6,
+    "cols": 19
+  },
+  "layouts": {
+    "keymap": [
+      [
+        {
+          "y": 0.25,
+          "c": "#777777"
+        },
+        "0,0",
+        {
+          "x": 1,
+          "c": "#cccccc"
+        },
+        "0,2",
+        "0,3",
+        "0,4",
+        "0,5",
+        {
+          "x": 0.5
+        },
+        "0,6",
+        "0,7",
+        "0,8",
+        "0,9",
+        {
+          "x": 0.5
+        },
+        "0,10",
+        "0,11",
+        "0,12",
+        "0,13",
+        {
+          "x": 0.25
+        },
+        "0,14",
+        {
+          "x": 0.25
+        },
+        "0,15",
+        "0,16",
+        "0,17",
+        "0,18\n\n\n\n\n\n\n\n\ne0"
+      ],
+      [
+        {
+          "y": 0.25,
+          "c": "#cccccc"
+        },
+        "1,0",
+        {
+          "c": "#cccccc"
+        },
+        "1,1",
+        "1,2",
+        "1,3",
+        "1,4",
+        "1,5",
+        "1,6",
+        "1,7",
+        "1,8",
+        "1,9",
+        "1,10",
+        "1,11",
+        "1,12",
+        {
+          "c": "#aaaaaa",
+          "w": 2
+        },
+        "1,13",
+        {
+          "x": 0.25,
+          "c": "#cccccc"
+        },
+        "1,14",
+        {
+          "x": 0.25
+        },
+        "1,15",
+        "1,16",
+        "1,17",
+        "1,18"
+      ],
+      [
+        {
+          "c": "#aaaaaa",
+          "w": 1.5
+        },
+        "2,0",
+        {
+          "c": "#cccccc"
+        },
+        "2,1",
+        "2,2",
+        "2,3",
+        "2,4",
+        "2,5",
+        "2,6",
+        "2,7",
+        "2,8",
+        "2,9",
+        "2,10",
+        "2,11",
+        "2,12",
+        {
+          "w": 1.5
+        },
+        "2,13",
+        {
+          "x": 0.25
+        },
+        "2,14",
+        {
+          "x": 0.25
+        },
+        "2,15",
+        "2,16",
+        "2,17",
+        {
+          "h": 2
+        },
+        "2,18"
+      ],
+      [
+        {
+          "c": "#aaaaaa",
+          "w": 1.75
+        },
+        "3,0",
+        {
+          "c": "#cccccc"
+        },
+        "3,1",
+        "3,2",
+        "3,3",
+        "3,4",
+        "3,5",
+        "3,6",
+        "3,7",
+        "3,8",
+        "3,9",
+        "3,10",
+        "3,11",
+        {
+          "c": "#777777",
+          "w": 2.25
+        },
+        "3,12",
+        {
+          "x": 0.25,
+          "c": "#cccccc"
+        },
+        "3,14",
+        {
+          "x": 0.25
+        },
+        "3,15",
+        "3,16",
+        "3,17"
+      ],
+      [
+        {
+          "c": "#aaaaaa",
+          "w": 2.25
+        },
+        "4,0",
+        {
+          "c": "#cccccc"
+        },
+        "4,1",
+        "4,2",
+        "4,3",
+        "4,4",
+        "4,5",
+        "4,6",
+        "4,7",
+        "4,8",
+        "4,9",
+        "4,10",
+        {
+          "c": "#aaaaaa",
+          "w": 1.75
+        },
+        "4,11",
+        {
+          "c": "#cccccc"
+        },
+        "4,12",
+        {
+          "x": 1.5
+        },
+        "4,15",
+        "4,16",
+        "4,17",
+        {
+          "h": 2,
+          "c": "#777777"
+        },
+        "4,18"
+      ],
+      [
+        {
+          "c": "#aaaaaa",
+          "w": 1.25
+        },
+        "5,0",
+        {
+          "w": 1.25
+        },
+        "5,1",
+        {
+          "w": 1.25
+        },
+        "5,2",
+        {
+          "c": "#cccccc",
+          "w": 6.25
+        },
+        "5,5",
+        {
+          "c": "#aaaaaa",
+          "w": 1.25
+        },
+        "5,9",
+        {
+          "w": 1.25
+        },
+        "5,10",
+        {
+          "x": 0.5,
+          "c": "#cccccc"
+        },
+        "5,11",
+        "5,12",
+        "5,14",
+        {
+          "x": 0.5,
+          "w": 2
+        },
+        "5,16",
+        "5,17"
+      ]
+    ]
+  },
+  "firmwareVersion": 2026101102
+}
