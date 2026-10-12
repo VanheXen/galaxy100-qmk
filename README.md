@@ -8,7 +8,8 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
 ## What's different from stock
 
 - **Fixed wake-up delay**: no forced 1-minute sleep while typing, no 1 s USB resume delay,
-  sleep timing configurable.
+  sleep timing configurable. Lights turn off while the PC sleeps (cable) and the keyboard
+  sleeps on the USB position without a cable.
 - **Correct LED map** (104 LEDs, including the 3 status LEDs under the right arrow), extracted
   from the stock firmware; Epomaker's published map was off by 3.
 - **Back mode switch** (BT / USB / 2.4G) supported; Epomaker's published source left its pins out.
@@ -30,7 +31,10 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
 - Pairing feedback on the mode keys; while Fn is held the active connection's key (Q/W/E/R)
   lights in its color; hold-to-confirm Win/Mac switch; Fn+knob brightness; knob turn wakes
   from sleep.
-- Caps / Num / Win lock indicators at full brightness, visible even with the backlight off.
+- Caps / Num / Win lock and the other indicators follow the backlight brightness, and stay
+  visible with the backlight off.
+- **Party tricks**: rainbow sweep at power-on and wake-up, Konami code (↑ ↑ ↓ ↓ ← → ← → B A)
+  rainbow rings, Fn+D rolls a die and Fn+F flips a coin on the numpad.
 - Firmware updates keep your VIA keymap, macros and settings (see Flash).
 
 ## Build
@@ -75,9 +79,10 @@ Design → Load. New controls are hidden on older firmware via `{id_firmware_ver
 | Fn + Q / W / E | Bluetooth 1 / 2 / 3 (hold 3 s to pair) |
 | Fn + R | 2.4G (hold 3 s to pair) |
 | Fn + T | backlight on/off |
-| Fn + Enter / \\ | next effect / color |
+| Fn + Enter / \\ | next effect (from Custom Paint: back to the last effect) / color |
 | Fn + ↑ ↓ ← → | brightness / speed |
 | Fn + Space | battery level |
+| Fn + D / F | roll a die / flip a coin |
 | Fn + Right Alt | turbo |
 | Fn + Ins / Home / End / PrtSc | Custom Paint record / slots 1-3 |
 | Fn + Win | Win key lock |
