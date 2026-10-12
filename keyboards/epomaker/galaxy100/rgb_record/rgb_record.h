@@ -48,24 +48,11 @@
 #define HS_WHITE        0x0101
 #define HS_YELLOW       0x2BFF
 
-#define LASET_MOD_NO    0xFF
-#define RGB_HSV_MAX     7
-#define ________        HS_BLACK
 
 #ifndef RGB_RECORD_HS_LISTS
 #    define RGB_RECORD_HS_LISTS \
         {HS_BLACK, HS_RED, HS_GREEN, HS_BLUE, HS_YELLOW, HS_PURPLE, HS_CYAN, HS_WHITE}
 #endif
-
-#define RGB_MATRIX_BAT_VAL      150
-
-#define IM_BAT_REQ_LEVEL1_VAL   50
-#define IM_BAT_REQ_LEVEL1_COLOR 0x00, RGB_MATRIX_BAT_VAL, 0x00
-
-#define IM_BAT_REQ_LEVEL2_VAL   30
-#define IM_BAT_REQ_LEVEL2_COLOR 0x00, RGB_MATRIX_BAT_VAL, 0x00
-
-#define IM_BAT_REQ_LEVEL3_COLOR RGB_MATRIX_BAT_VAL, 0x00, 0x00
 
 void rgbrec_read_current_channel(uint8_t channel);
 void rgbrec_set_close_all(void);
@@ -75,6 +62,4 @@ bool rgbrec_start(uint8_t channel);
 bool rgbrec_show(uint8_t channel);
 void rgbrec_init(uint8_t channel);
 bool rgbrec_is_started(void);
-void eeconfig_init_user_datablock(void);
 bool rgbrec_register_record(uint16_t keycode, keyrecord_t *record);
-void query(void);

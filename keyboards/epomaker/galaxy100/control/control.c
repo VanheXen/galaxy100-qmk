@@ -3,9 +3,6 @@
 
 #include "control.h"
 
-static ioline_t col_pins[MATRIX_COLS] = MATRIX_COL_PINS;
-extern bool     lower_sleep;
-
 bool hs_modeio_detection(bool update, uint8_t *mode, uint8_t lsat_btdev) {
     static uint32_t scan_timer = 0x00;
 
@@ -93,13 +90,12 @@ bool hs_rgb_blink_hook() {
         case MD_STATE_DISCONNECTED:
             if (hs_rgb_blink_get_timer() == 0x00) {
                 hs_rgb_blink_set_timer(timer_read32());
-                extern void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset);
-                wireless_devs_change_kb(wireless_get_current_devs(), wireless_get_current_devs(), false);
             } else {
+                // no link for 30 s: stop reconnecting and sleep (USB position: only
+                // on battery, the timeout hook keeps us up on the cable)
                 if (timer_elapsed32(hs_rgb_blink_get_timer()) >= HS_LBACK_TIMEOUT) {
                     hs_rgb_blink_set_timer(timer_read32());
-                    md_send_devctrl(MD_SND_CMD_DEVCTRL_USB);
-                    wait_ms(200);
+                    if (wireless_get_current_devs() != DEVS_USB) md_send_devctrl(MD_SND_CMD_DEVCTRL_USB);
                     lpwr_set_timeout_manual(true);
                 }
             }
@@ -126,16 +122,6 @@ void lpwr_exti_init_hook(void) {
     palEnableLineEvent(HS_2G4_DEF_PIN, PAL_EVENT_MODE_BOTH_EDGES);
 #endif
 
-    if (lower_sleep) {
-#if DIODE_DIRECTION == ROW2COL
-        for (uint8_t i = 0; i < ARRAY_SIZE(col_pins); i++) {
-            if (col_pins[i] != NO_PIN) {
-                gpio_set_pin_output(col_pins[i]);
-                gpio_write_pin_high(col_pins[i]);
-            }
-        }
-#endif
-    }
     gpio_set_pin_input(HS_BAT_CABLE_PIN);
     waitInputPinDelay();
     palEnableLineEvent(HS_BAT_CABLE_PIN, PAL_EVENT_MODE_RISING_EDGE);
@@ -166,20 +152,5 @@ void palcallback_cb(uint8_t line) {
 #endif
         default: {
         } break;
-    }
-}
-
-void lpwr_stop_hook_post(void) {
-    if (lower_sleep) {
-        switch (lpwr_get_sleep_wakeupcd()) {
-            case LPWR_WAKEUP_USB:
-            case LPWR_WAKEUP_CABLE: {
-                lower_sleep = false;
-                lpwr_set_state(LPWR_WAKEUP);
-            } break;
-            default: {
-                lpwr_set_state(LPWR_STOP);
-            } break;
-        }
     }
 }

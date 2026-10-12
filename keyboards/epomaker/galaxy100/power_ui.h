@@ -8,3 +8,8 @@ bool power_ui_process_record(uint16_t keycode, keyrecord_t *record);
 void power_ui_indicators(void);
 void power_ui_init(void);
 void power_ui_layer_highlight(void);
+
+// Overlay colors at the backlight's current brightness (incl. dimming and the
+// battery cap), so indicators never outshine the effect: r/g/b are full-scale.
+uint8_t ui_val(void);
+void    ui_set_color(uint8_t led, uint8_t r, uint8_t g, uint8_t b);

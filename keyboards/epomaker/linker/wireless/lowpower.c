@@ -284,10 +284,17 @@ void lpwr_wakeup_cb(void) {
 #endif
     }
 
-    suspend_wakeup_init();
+    // not suspend_wakeup_init(): it clears the keys, so a modifier held to wake
+    // the board would be lost. Keys released while asleep show up in the next scan.
+    suspend_wakeup_init_quantum();
     lpwr_wakeup_hook();
 
     last_matrix_activity_trigger();
+}
+
+// a key or the knob used since the current sleep step started
+static bool lpwr_activity_since_step(void) {
+    return last_input_activity_elapsed() < sync_timer_elapsed32(lpwr_timestamp_read());
 }
 
 void lpwr_task(void) __attribute__((weak));
@@ -301,6 +308,11 @@ void lpwr_task(void) {
             }
         } break;
         case LPWR_PRESLEEP: {
+            if (lpwr_activity_since_step()) { // typed while going to sleep: stay up
+                lpwr_is_allow_wakeup_hook();  // restarts USB if the presleep hook stopped it
+                lpwr_set_state(LPWR_NORMAL);
+                break;
+            }
             if (lpwr_is_allow_presleep()) {
                 lpwr_presleep_cb();
                 lpwr_update_timestamp();
@@ -308,6 +320,11 @@ void lpwr_task(void) {
             }
         } break;
         case LPWR_STOP: {
+            if (lpwr_activity_since_step()) { // typed between stop cycles (e.g. after a UART wake-up)
+                lpwr_update_timestamp();
+                lpwr_set_state(LPWR_WAKEUP);
+                break;
+            }
             if (lpwr_is_allow_stop()) {
                 lpwr_update_timestamp();
                 lpwr_stop_cb();

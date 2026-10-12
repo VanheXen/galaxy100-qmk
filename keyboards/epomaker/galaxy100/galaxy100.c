@@ -3,12 +3,14 @@
 
 #include QMK_KEYBOARD_H
 #include "rgb_record/rgb_record.h"
+#include "party.h"
 #ifdef WIRELESS_ENABLE
 #    include "wireless.h"
 #    include "control.h"
-#    include "power_ui.h"
 #    include "turbo.h"
 #endif
+#include "power_ui.h"
+#include "usb_main.h"
 
 typedef union {
     uint32_t raw;
@@ -56,9 +58,7 @@ static uint32_t rec_time;
 static uint32_t ee_clr_timer = 0; // Fn+Backspace held since
 #define EE_CLR_HOLD_MS 10000
 static bool     rec_filp;
-HSV             start_hsv;
 bool            no_record_fg;
-bool            lower_sleep = false; // used by control.c
 
 void eeconfig_confinfo_update(uint32_t raw) {
 
@@ -141,7 +141,7 @@ void keyboard_post_init_kb(void) {
 
     rgbrec_init(confinfo.record_channel);
 
-    start_hsv = rgb_matrix_get_hsv();
+    party_boot();
 }
 
 #ifdef WIRELESS_ENABLE
@@ -180,13 +180,11 @@ void suspend_wakeup_init_kb(void) {
     hs_rgb_blink_set_timer(timer_read32());
 }
 
+// No idle sleep while a USB host powers us (it suspends us itself). On the USB
+// position without a cable the keyboard runs on battery and must sleep too:
+// the switch has no off position, so this is where it gets left.
 bool lpwr_is_allow_timeout_hook(void) {
-
-    if (wireless_get_current_devs() == DEVS_USB) {
-        return false;
-    }
-
-    return true;
+    return wireless_get_current_devs() != DEVS_USB || !charging_state;
 }
 
 void wireless_post_task(void) {
@@ -248,8 +246,6 @@ bool process_record_wls(uint16_t keycode, keyrecord_t *record) {
     static uint16_t keycode_shadow                     = 0x00;
     static deferred_token wls_process_long_press_token = INVALID_DEFERRED_TOKEN;
 
-    keycode_shadow = keycode;
-
 #    ifndef WLS_KEYCODE_PAIR_TIME
 #        define WLS_KEYCODE_PAIR_TIME 3000
 #    endif
@@ -260,6 +256,7 @@ bool process_record_wls(uint16_t keycode, keyrecord_t *record) {
                 if (wireless_get_current_devs() != wls_dev)                                                                    \
                     wireless_devs_change(wireless_get_current_devs(), wls_dev, false);                                         \
                 if (wls_process_long_press_token == INVALID_DEFERRED_TOKEN) {                                                  \
+                    keycode_shadow               = keycode; /* other keys meanwhile must not change it */                    \
                     wls_process_long_press_token = defer_exec(WLS_KEYCODE_PAIR_TIME, wls_process_long_press, &keycode_shadow); \
                 }                                                                                                              \
             } else {                                                                                                           \
@@ -303,7 +300,9 @@ bool process_record_wls(uint16_t keycode, keyrecord_t *record) {
             }
         } break;
         case KC_USB: {
-            if (record->event.pressed) {
+            uint8_t mode = confinfo.devs;
+            hs_modeio_detection(true, &mode, confinfo.last_btdevs);
+            if (record->event.pressed && ((mode == hs_usb) || (mode == hs_none))) {
                 wireless_devs_change(wireless_get_current_devs(), DEVS_USB, false);
                 hs_rgb_blink_set_timer(timer_read32());
             }
@@ -318,41 +317,32 @@ bool process_record_wls(uint16_t keycode, keyrecord_t *record) {
 
 // While Custom Paint recording is on, key presses paint keys instead of typing.
 static bool rgbrec_process_record(uint16_t keycode, keyrecord_t *record) {
+    if (!rgbrec_is_started()) return true;
+
     switch (keycode) {
+        case RP_END:
+        case RP_P0:
+        case RP_P1:
+        case RP_P2:
+        case RM_NEXT:
+            return true;
         case MO(_FL):
         case MO(_MFL): {
-            if (!record->event.pressed && rgbrec_is_started()) {
+            if (!record->event.pressed) {
                 if (no_record_fg == true) {
                     no_record_fg = false;
                     rgbrec_register_record(keycode, record);
                 }
                 no_record_fg = true;
             }
-            break;
+            return true;
         }
-        case RP_END:
-        case RP_P0:
-        case RP_P1:
-        case RP_P2:
-        case RM_NEXT:
-            break;
-        default: {
-            if (rgbrec_is_started()) {
-                if (!IS_QK_MOMENTARY(keycode) && record->event.pressed) {
-                    rgbrec_register_record(keycode, record);
-
-                    return false;
-                }
-            }
-        } break;
     }
-
-    if (rgbrec_is_started() && (!(keycode == RP_P0 || keycode == RP_P1 || keycode == RP_P2 || keycode == RP_END || keycode == RM_NEXT || keycode == MO(_FL) || keycode == MO(_MFL)))) {
-
-        return false;
-    }
-
-    return true;
+    // releases always go through: a key held when recording started must not
+    // stick on the host, and hold timers (Fn+Backspace reset) must see it end
+    if (!record->event.pressed) return true;
+    if (!IS_QK_MOMENTARY(keycode)) rgbrec_register_record(keycode, record);
+    return false;
 }
 
 void os_switch_to(bool to_mac) {
@@ -361,6 +351,22 @@ void os_switch_to(bool to_mac) {
     rgb_matrix_hs_indicator_set(to_mac ? HS_RGB_BLINK_INDEX_MAC : HS_RGB_BLINK_INDEX_WIN, (RGB){RGB_WHITE}, 250, 3);
     set_single_persistent_default_layer(to_mac ? _MBL : _BL);
     layer_move(0);
+}
+
+// a lighting effect RM_NEXT can cycle to (not off, not Custom Paint)
+static bool is_effect(uint8_t mode) {
+    return mode != RGB_MATRIX_NONE && mode != RGB_MATRIX_CUSTOM_RGBR_PLAY && mode < RGB_MATRIX_EFFECT_MAX;
+}
+
+// show (and later record into) a Custom Paint slot
+static void rgbrec_select(uint8_t channel) {
+    if (rgbrec_is_started()) rgbrec_end(confinfo.record_channel); // keep what was painted
+    rec_time     = 0;
+    no_record_fg = false;
+    if (is_effect(rgb_matrix_get_mode())) confinfo.record_last_mode = rgb_matrix_get_mode(); // RM_NEXT returns here
+    confinfo.record_channel = channel;
+    eeconfig_confinfo_update(confinfo.raw);
+    rgbrec_show(channel);
 }
 
 static uint32_t os_switch_cb(uint32_t trigger_time, void *cb_arg) {
@@ -378,6 +384,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
     if (!process_record_user(keycode, record)) {
         return false;
     }
+    if (!party_process_record(keycode, record)) {
+        return false;
+    }
 
 #ifdef WIRELESS_ENABLE
     if (power_ui_process_record(keycode, record) != true) {
@@ -392,21 +401,11 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 #endif
 
     switch (keycode) {
-        case QK_BOOT: {
-            if (record->event.pressed) {
-                bootloader_jump(); // keep keymap and settings (Esc-hold at plug-in still resets)
-            }
-        } break;
-
         case EE_CLR: {
             ee_clr_timer = record->event.pressed ? timer_read32() : 0;
             return false;
         } break;
         case NK_TOGG: {
-            if (rgbrec_is_started()) {
-
-                return false;
-            }
             if (record->event.pressed) {
                 rgb_matrix_hs_indicator_set(0xFF, (RGB){0x00, 0x6E, 0x00}, 250, 1);
             }
@@ -432,9 +431,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 if (rgb_matrix_get_val() >= (RGB_MATRIX_MAXIMUM_BRIGHTNESS - RGB_MATRIX_VAL_STEP)) {
                     rgb_blink_dir();
-                    start_hsv.v = RGB_MATRIX_MAXIMUM_BRIGHTNESS;
-                } else {
-                    start_hsv.v = rgb_matrix_get_val() + RGB_MATRIX_VAL_STEP;
                 }
             }
         } break;
@@ -444,9 +440,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                     rgb_blink_dir();
 
                     rgb_matrix_set_color_all(0, 0, 0);
-                    start_hsv.v = 0;
-                } else {
-                    start_hsv.v = rgb_matrix_get_val() - RGB_MATRIX_VAL_STEP;
                 }
             }
         } break;
@@ -465,37 +458,10 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
         } break;
-        case RP_P0: {
-            if (record->event.pressed) {
-                confinfo.record_channel = 0;
-                rgbrec_read_current_channel(confinfo.record_channel);
-                rgbrec_end(confinfo.record_channel);
-                eeconfig_confinfo_update(confinfo.raw);
-                rgbrec_show(confinfo.record_channel);
-            }
-
-            return false;
-        } break;
-        case RP_P1: {
-            if (record->event.pressed) {
-                confinfo.record_channel = 1;
-                rgbrec_read_current_channel(confinfo.record_channel);
-                rgbrec_end(confinfo.record_channel);
-                eeconfig_confinfo_update(confinfo.raw);
-                rgbrec_show(confinfo.record_channel);
-            }
-
-            return false;
-        } break;
+        case RP_P0:
+        case RP_P1:
         case RP_P2: {
-            if (record->event.pressed) {
-                confinfo.record_channel = 2;
-                rgbrec_read_current_channel(confinfo.record_channel);
-                rgbrec_end(confinfo.record_channel);
-                eeconfig_confinfo_update(confinfo.raw);
-                rgbrec_show(confinfo.record_channel);
-            }
-
+            if (record->event.pressed) rgbrec_select(keycode - RP_P0);
             return false;
         } break;
         case RP_END: {
@@ -525,19 +491,15 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                         rgbrec_end(confinfo.record_channel);
                         no_record_fg = false;
                     }
-                    if (confinfo.record_last_mode != 0xFF)
-                        rgb_matrix_mode(confinfo.record_last_mode);
-                    else
-                        rgb_matrix_mode(RGB_MATRIX_DEFAULT_MODE);
-                    eeconfig_confinfo_update(confinfo.raw);
-                    start_hsv = rgb_matrix_get_hsv();
+                    rgb_matrix_mode(is_effect(confinfo.record_last_mode) ? confinfo.record_last_mode : RGB_MATRIX_DEFAULT_MODE);
                     return false;
                 }
-                rgb_matrix_step();
-                if (rgb_matrix_get_mode() == RGB_MATRIX_NONE) rgb_matrix_step(); // skip "off"
+                // effects only: Custom Paint has its own keys (RP_P0..2)
+                do {
+                    rgb_matrix_step();
+                } while (!is_effect(rgb_matrix_get_mode()));
                 confinfo.record_last_mode = rgb_matrix_get_mode();
                 eeconfig_confinfo_update(confinfo.raw);
-                start_hsv = rgb_matrix_get_hsv();
             }
 
             return false;
@@ -548,7 +510,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                 static uint8_t       preset       = 0;
                 preset                            = (preset + 1) % ARRAY_SIZE(presets);
                 rgb_matrix_sethsv(presets[preset][0], presets[preset][1], rgb_matrix_get_val());
-                start_hsv = rgb_matrix_get_hsv();
             }
 
             return false;
@@ -600,15 +561,22 @@ void housekeeping_task_kb(void) {
     }
 
     charging_state = gpio_read_pin(HS_BAT_CABLE_PIN);
+
+    // asleep: our sleep, or the PC suspended USB (lights off, see transport.c)
+    bool awake = USB_DRIVER.state != USB_SUSPENDED;
 #ifdef WIRELESS_ENABLE
-    power_ui_task();
-    turbo_task();
+    awake = awake && lpwr_get_state() == LPWR_NORMAL;
+    if (awake) {
+        power_ui_task();
+        turbo_task(); // not while going to sleep: its key activity would cancel it
+    }
 #endif
 
     // QMK stops drawing indicators while the backlight is off (Fn+T / VIA "Off"),
     // so keep Caps/Num/Win lock, status light and battery visible on a black frame.
+    // (not while asleep: sleep disables the matrix too, and the LEDs must stay dark)
     static uint32_t dark_frame = 0;
-    if (!rgb_matrix_is_enabled() && timer_elapsed32(dark_frame) >= 30) {
+    if (awake && !rgb_matrix_is_enabled() && timer_elapsed32(dark_frame) >= 30) {
         dark_frame = timer_read32();
         rgb_matrix_set_color_all(0, 0, 0);
         rgb_matrix_indicators_advanced_kb(0, RGB_MATRIX_LED_COUNT);
@@ -619,6 +587,7 @@ void housekeeping_task_kb(void) {
 #ifdef WIRELESS_ENABLE
 // remember the selected mode (and last Bluetooth host) across power cycles
 void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset) {
+    if (old_devs != new_devs) turbo_stop();
     if (confinfo.devs != new_devs) {
         confinfo.devs = new_devs;
         if (new_devs >= DEVS_BT1 && new_devs <= DEVS_BT3) confinfo.last_btdevs = new_devs;
@@ -639,11 +608,7 @@ void rgb_blink_dir(void) {
 
 void nkr_indicators_hook(uint8_t index) {
 
-    if ((hs_rgb_indicators[index].rgb.r == 0x6E) && (hs_rgb_indicators[index].rgb.g == 0x00) && (hs_rgb_indicators[index].rgb.b == 0x00)) {
-
-        rgb_matrix_hs_indicator_set(0xFF, (RGB){0x6E, 0x00, 0x00}, 250, 1);
-
-    } else if ((hs_rgb_indicators[index].rgb.r == 0x00) && (hs_rgb_indicators[index].rgb.g == 0x6E) && (hs_rgb_indicators[index].rgb.b == 0x00)) {
+    if ((hs_rgb_indicators[index].rgb.r == 0x00) && (hs_rgb_indicators[index].rgb.g == 0x6E) && (hs_rgb_indicators[index].rgb.b == 0x00)) {
 
         rgb_matrix_hs_indicator_set(0xFF, (RGB){0x00, 0x00, 0x6F}, 250, 1);
     }
@@ -739,13 +704,13 @@ void rgb_matrix_start_rec(void) {
     }
 }
 
-#define LOCK_LIGHT 0xFF // Caps / Num / Win lock indicator brightness (stock: 0x20)
-
 bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 
     if (!rgb_matrix_indicators_advanced_user(led_min, led_max)) {
         return false;
     }
+    // the overlays below cover all LEDs: draw them once, after the effect's last chunk
+    if (led_max < RGB_MATRIX_LED_COUNT) return true;
 
 #ifdef WIRELESS_ENABLE
     power_ui_layer_highlight();
@@ -756,15 +721,15 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
     caps = caps || is_caps_word_on();
 #endif
     if (caps)
-        rgb_matrix_set_color(HS_RGB_INDEX_CAPS, LOCK_LIGHT, LOCK_LIGHT, LOCK_LIGHT);
+        ui_set_color(HS_RGB_INDEX_CAPS, 0xFF, 0xFF, 0xFF);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_CAPS, RGB_BLACK);
     if (host_keyboard_led_state().num_lock)
-        rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, LOCK_LIGHT, LOCK_LIGHT, LOCK_LIGHT);
+        ui_set_color(HS_RGB_INDEX_NUM_LOCK, 0xFF, 0xFF, 0xFF);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, RGB_BLACK);
     if (!keymap_is_mac_system() && keymap_config.no_gui)
-        rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, LOCK_LIGHT, LOCK_LIGHT, LOCK_LIGHT);
+        ui_set_color(HS_RGB_INDEX_WIN_LOCK, 0xFF, 0xFF, 0xFF);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, RGB_BLACK);
 
@@ -775,17 +740,27 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
         uint32_t held = timer_elapsed32(ee_clr_timer);
         uint16_t period = held > EE_CLR_HOLD_MS * 3 / 4 ? 100 : 400;
         uint8_t  led    = g_led_config.matrix_co[1][13];
-        if (led != NO_LED) rgb_matrix_set_color(led, (timer_read32() / period) % 2 ? 0xFF : 0, 0, 0);
+        if (led != NO_LED) ui_set_color(led, (timer_read32() / period) % 2 ? 0xFF : 0, 0, 0);
     }
 
 #ifdef WIRELESS_ENABLE
     power_ui_indicators();
     turbo_indicators();
 #endif
+    party_indicators();
 
     rgb_matrix_start_rec();
 
     return true;
+}
+
+// Deep sleep: cut every LED supply line that lpwr_wakeup_hook turns back on
+// (the LED enable alone left the boost converter running all night).
+void lpwr_presleep_hook(void) {
+    turbo_stop();
+    gpio_write_pin_low(LED_POWER_EN_PIN);
+    gpio_write_pin_low(A9);
+    gpio_write_pin_low(HS_LED_BOOSTING_PIN);
 }
 
 void lpwr_wakeup_hook(void) {
@@ -793,4 +768,5 @@ void lpwr_wakeup_hook(void) {
     gpio_write_pin_high(LED_POWER_EN_PIN);
     gpio_write_pin_high(A9);
     gpio_write_pin_high(HS_LED_BOOSTING_PIN);
+    party_boot();
 }

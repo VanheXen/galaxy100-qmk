@@ -55,6 +55,10 @@ bool socd_process_record(uint16_t keycode, keyrecord_t *record) {
     }
     if (i < 0) return true;
 
+    // release of a key pressed before SOCD covered it (VIA change while held):
+    // QMK registered it, so let QMK release it
+    if (!record->event.pressed && !held[i]) return true;
+
     uint8_t p = i ^ 1, pair = i / 2;
     held[i]   = record->event.pressed;
     if (record->event.pressed) newest[pair] = i;

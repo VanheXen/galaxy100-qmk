@@ -6,6 +6,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifndef SMSG_PAYLOAD_LEN
+#    define SMSG_PAYLOAD_LEN 50 // largest queued message
+#endif
+
 typedef enum {
     smsg_state_free = 0,
     smsg_state_busy,

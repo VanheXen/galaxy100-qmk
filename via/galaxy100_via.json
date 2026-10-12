@@ -738,6 +738,16 @@
       "name": "Turbo",
       "title": "Turbo: press, then the next key fires by itself until you press Turbo again",
       "shortName": "Turbo"
+    },
+    {
+      "name": "Dice",
+      "title": "Roll a die on the numpad (Fn+D)",
+      "shortName": "Dice"
+    },
+    {
+      "name": "Coin",
+      "title": "Flip a coin on the numpad: ring = heads, cross = tails (Fn+F)",
+      "shortName": "Coin"
     }
   ],
   "matrix": {
@@ -986,5 +996,5 @@
       ]
     ]
   },
-  "firmwareVersion": 2026101104
+  "firmwareVersion": 2026101301
 }

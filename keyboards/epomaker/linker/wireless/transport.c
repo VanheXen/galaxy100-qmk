@@ -15,7 +15,6 @@ extern host_driver_t chibios_driver;
 extern host_driver_t wireless_driver;
 
 static transport_t transport = TRANSPORT_USB;
-bool temp;
 
 void wls_transport_enable(bool enable) __attribute__((weak));
 void wls_transport_enable(bool enable) {
@@ -59,8 +58,7 @@ void usb_transport_enable(bool enable) {
         }
     } else {
         if (USB_DRIVER.state == USB_ACTIVE) {
-            chibios_driver.send_keyboard(NULL);
-            chibios_driver.send_nkro(NULL);
+            clear_keyboard(); // release everything on the host (USB is still the host driver here)
         }
 
 #if !defined(KEEP_USB_CONNECTION_IN_WIRELESS_MODE)
@@ -122,17 +120,28 @@ void usb_remote_wakeup(void) {
     }
 #else
 
+    static bool host_asleep = false;
+    extern bool charging_state;
+
     if ((USB_DRIVER.state == USB_SUSPENDED)) {
+        // PC asleep with the cable in: lights off, like stock QMK does in its
+        // suspend loop (skipped here because of NO_USB_STARTUP_CHECK)
+        if (charging_state && !host_asleep) {
+            host_asleep = true;
+            suspend_power_down();
+        }
         if (!suspend_timer) suspend_timer = sync_timer_read32();
         if (sync_timer_elapsed32(suspend_timer) >= USB_POWER_DOWN_DELAY) {
             suspend_timer = 0x00;
             extern void lpwr_set_timeout_manual(bool enable);
-            temp = true;
-            // suspend_power_down();
-            lpwr_set_timeout_manual(true);
+            lpwr_set_timeout_manual(true); // battery only: lpwr_is_allow_timeout_hook keeps us up on the cable
         }
     } else {
         suspend_timer = 0x00;
+        if (host_asleep) {
+            host_asleep = false;
+            suspend_wakeup_init_quantum(); // lights back on; held keys stay held
+        }
     }
 #endif
 }

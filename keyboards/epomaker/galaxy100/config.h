@@ -51,16 +51,13 @@
 #define HS_RGB_BLINK_INDEX_2G4 52
 #define HS_RGB_BLINK_INDEX_USB 80
 
-/* Keyboard datablock: confinfo (4) + power_ui settings (15) */
-#define EECONFIG_KB_DATA_SIZE 19
+/* Keyboard datablock: confinfo (4) + power_ui settings (15) + spare.
+ * The spare bytes let new settings be added without moving the Custom Paint
+ * slots and VIA keymaps that follow in EEPROM (that would need an EEPROM reset). */
+#define EECONFIG_KB_DATA_SIZE 32
 
 /* Shown to VIA; must match "firmwareVersion" in the VIA JSON (YYYYMMDDNN) */
-#define VIA_FIRMWARE_VERSION 2026101104
-
-/* UART */
-#define SERIAL_DRIVER SD3
-#define SD1_TX_PIN C10
-#define SD1_RX_PIN C11
+#define VIA_FIRMWARE_VERSION 2026101301
 
 /* UART for wireless module */
 #define UART_DRIVER SD3
@@ -103,4 +100,6 @@
 #define RGBREC_CHANNEL_NUM 3
 #define ENABLE_RGB_MATRIX_RGBR_PLAY
 #define EECONFIG_USER_DATA_SIZE (RGBREC_CHANNEL_NUM * MATRIX_ROWS * MATRIX_COLS * 2)
+// paint slots sit right after the kb datablock: resizing it blanks them instead of garbling
+#define EECONFIG_USER_DATA_VERSION (EECONFIG_USER_DATA_SIZE | ((uint32_t)EECONFIG_KB_DATA_SIZE << 16))
 #define RGBREC_EECONFIG_ADDR (uint8_t *)(EECONFIG_USER_DATABLOCK)

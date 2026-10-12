@@ -65,7 +65,7 @@ typedef struct
     uint8_t bat;
 } md_info_t;
 
-static uint8_t md_pkt_payload[MD_SEND_PKT_PAYLOAD_MAX] = {0};
+static uint8_t md_pkt_payload[SMSG_PAYLOAD_LEN]        = {0}; // any queued message fits
 static uint8_t md_rev_payload[MD_SEND_PKT_PAYLOAD_MAX] = {0};
 static uint8_t md_raw_payload[MD_RAW_SIZE]             = {0};
 
@@ -121,9 +121,14 @@ void md_receive_host_cb(bool resume) {}
 static void md_receive_msg_task(void) {
     static uint32_t data_count = 0x00;
     static uint8_t data_remain = 0x00;
+    static uint32_t last_rx    = 0x00;
 
     while (uart_available()) {
         uint8_t data = uart_read();
+
+        // a half frame left over for 50 ms is noise or a byte lost on wake-up: resync
+        if (data_count && sync_timer_elapsed32(last_rx) > 50) data_count = 0;
+        last_rx = sync_timer_read32();
 
         switch (data_count) {
             case 0: { // cmd
@@ -161,6 +166,10 @@ static void md_receive_msg_task(void) {
 
                 // raw data
                 if ((md_rev_payload[0] == MD_REV_CMD_RAW) && (md_rev_payload[1] == MD_REV_CMD_RAW_OUT)) {
+                    if (data != MD_RAW_SIZE) { // length byte decides how much we store: never trust it
+                        data_count = 0;
+                        continue;
+                    }
                     md_rev_payload[data_count++] = data;
                     data_remain                  = data + 1;
                     continue;
@@ -180,6 +189,7 @@ static void md_receive_msg_task(void) {
             md_send_ack();
 
             if (md_receive_process_kb(md_rev_payload, data_count) != true) {
+                data_count = 0;
                 return;
             }
 
@@ -234,25 +244,48 @@ static void md_receive_msg_task(void) {
     }
 }
 
+// Key state reports must survive a full queue (a lost release = a stuck key):
+// keep the latest one of each kind and queue it as soon as there is room.
+enum { PEND_KB, PEND_NKRO, PEND_CONSUMER, PEND_SYSTEM, PEND_MOUSE, PEND_COUNT };
+static uint8_t pend_buf[PEND_COUNT][MD_SND_CMD_NKRO_LEN + 2]; // NKRO is the longest
+static uint8_t pend_len[PEND_COUNT];
+
+static void md_push_state(uint8_t kind, uint8_t *sdata, uint8_t len) {
+    if (smsg_push(sdata, len)) {
+        pend_len[kind] = 0; // newer than whatever was waiting
+        return;
+    }
+    memcpy(pend_buf[kind], sdata, len);
+    pend_len[kind] = len;
+}
+
+static void md_flush_pending(void) {
+    for (uint8_t k = 0; k < PEND_COUNT; k++) {
+        if (pend_len[k] && smsg_push(pend_buf[k], pend_len[k])) pend_len[k] = 0;
+    }
+}
+
 static void md_send_pkt_task(void) {
     static uint32_t smsg_timer = 0x00;
     static uint8_t smsg_retry  = 0;
 
+    md_flush_pending();
+
     switch (smsg_get_state()) {
         case smsg_state_busy: {
             if (sync_timer_elapsed32(smsg_timer) > (MD_SNED_PKT_TIMEOUT)) {
-                smsg_retry = 0;
                 smsg_set_state(smsg_state_retry);
             }
         } break;
         case smsg_state_retry: {
-            if (++smsg_retry > MD_SEND_PKT_RETRY) {
+            if (++smsg_retry > MD_SEND_PKT_RETRY) { // no ACK after all retries: drop it
                 smsg_retry = 0;
                 smsg_pop();
             }
             smsg_set_state(smsg_state_free);
         } break;
         case smsg_state_replied: {
+            smsg_retry = 0;
             smsg_pop();
             smsg_set_state(smsg_state_free);
         } // break;
@@ -319,7 +352,7 @@ void md_send_kb(uint8_t *data) {
     sdata[0] = MD_SND_CMD_SEND_KB;
     memcpy(&sdata[1], data, sizeof(sdata) - 2);
     md_calc_check_sum(sdata, sizeof(sdata) - 1);
-    smsg_push(sdata, sizeof(sdata));
+    md_push_state(PEND_KB, sdata, sizeof(sdata));
 }
 
 void md_send_nkro(uint8_t *data) {
@@ -328,7 +361,7 @@ void md_send_nkro(uint8_t *data) {
     sdata[0] = MD_SND_CMD_SEND_NKRO;
     memcpy(&sdata[1], data, sizeof(sdata) - 2);
     md_calc_check_sum(sdata, sizeof(sdata) - 1);
-    smsg_push(sdata, sizeof(sdata));
+    md_push_state(PEND_NKRO, sdata, sizeof(sdata));
 }
 
 void md_send_consumer(uint8_t *data) {
@@ -337,7 +370,7 @@ void md_send_consumer(uint8_t *data) {
     sdata[0] = MD_SND_CMD_SEND_CONSUMER;
     memcpy(&sdata[1], data, sizeof(sdata) - 2);
     md_calc_check_sum(sdata, sizeof(sdata) - 1);
-    smsg_push(sdata, sizeof(sdata));
+    md_push_state(PEND_CONSUMER, sdata, sizeof(sdata));
 }
 
 void md_send_system(uint8_t *data) {
@@ -346,7 +379,7 @@ void md_send_system(uint8_t *data) {
     sdata[0] = MD_SND_CMD_SEND_SYSTEM;
     memcpy(&sdata[1], data, sizeof(sdata) - 2);
     md_calc_check_sum(sdata, sizeof(sdata) - 1);
-    smsg_push(sdata, sizeof(sdata));
+    md_push_state(PEND_SYSTEM, sdata, sizeof(sdata));
 }
 
 void md_send_fn(uint8_t *data) {
@@ -364,7 +397,7 @@ void md_send_mouse(uint8_t *data) {
     sdata[0] = MD_SND_CMD_SEND_MOUSE;
     memcpy(&sdata[1], data, sizeof(sdata) - 2);
     md_calc_check_sum(sdata, sizeof(sdata) - 1);
-    smsg_push(sdata, sizeof(sdata));
+    md_push_state(PEND_MOUSE, sdata, sizeof(sdata));
 }
 
 void md_send_devinfo(const char *name) {

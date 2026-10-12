@@ -6,6 +6,7 @@
 
 #include QMK_KEYBOARD_H
 #include "turbo.h"
+#include "power_ui.h"
 
 uint8_t turbo_rate_hz = 20; // presses per second, set from VIA (power_ui.c)
 
@@ -23,20 +24,23 @@ static bool can_turbo(uint16_t keycode) {
     return IS_BASIC_KEYCODE(keycode) || IS_MOUSE_KEYCODE(keycode);
 }
 
-static void stop(void) {
+void turbo_stop(void) {
     if (down) unregister_code16(turbo_kc);
     down  = false;
     state = TURBO_OFF;
 }
 
 bool turbo_process_record(uint16_t keycode, keyrecord_t *record) {
+    // knob events carry no matrix position (row 252/253): never arm or fire from them
+    if (IS_ENCODEREVENT(record->event)) return true;
+
     if (keycode == TURBO) {
         if (record->event.pressed) {
             if (state == TURBO_OFF) {
                 state   = TURBO_ARMED;
                 arm_pos = record->event.key;
             } else {
-                stop();
+                turbo_stop();
             }
         }
         return false;
@@ -69,10 +73,11 @@ void turbo_task(void) {
 }
 
 static void blink_key(keypos_t pos, uint8_t r, uint8_t g, uint8_t b) {
+    if (pos.row >= MATRIX_ROWS || pos.col >= MATRIX_COLS) return;
     uint8_t led = g_led_config.matrix_co[pos.row][pos.col];
     if (led == NO_LED) return;
     bool on = (timer_read32() / 300) % 2;
-    rgb_matrix_set_color(led, on ? r : 0, on ? g : 0, on ? b : 0);
+    ui_set_color(led, on ? r : 0, on ? g : 0, on ? b : 0);
 }
 
 void turbo_indicators(void) {

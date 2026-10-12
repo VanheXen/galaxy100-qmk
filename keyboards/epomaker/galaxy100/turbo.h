@@ -6,3 +6,4 @@
 bool turbo_process_record(uint16_t keycode, keyrecord_t *record);
 void turbo_task(void);
 void turbo_indicators(void);
+void turbo_stop(void); // sleep, mode change

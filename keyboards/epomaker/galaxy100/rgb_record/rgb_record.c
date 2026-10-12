@@ -52,14 +52,16 @@ static bool find_matrix_row_col(uint8_t index, uint8_t *row, uint8_t *col) {
     return false;
 }
 
+rgb_t rgb_matrix_hsv_to_rgb(hsv_t hsv); // quantum/rgb_matrix.c, overridden in power_ui.c
+
 static inline RGB hs_to_rgb(uint8_t h, uint8_t s) {
 
     if ((h == 0) && (s == 0)) {
-        return hsv_to_rgb((HSV){0, 0, 0});
+        return rgb_matrix_hsv_to_rgb((HSV){0, 0, 0});
     } else if ((h == 1) && (s == 1)) {
-        return hsv_to_rgb((HSV){0, 0, rgbrec_info.value});
+        return rgb_matrix_hsv_to_rgb((HSV){0, 0, rgbrec_info.value}); // battery brightness cap applies
     } else {
-        return hsv_to_rgb((HSV){h, s, rgbrec_info.value});
+        return rgb_matrix_hsv_to_rgb((HSV){h, s, rgbrec_info.value});
     }
 }
 
@@ -204,7 +206,8 @@ static inline void cycle_rgb_next_color(uint8_t row, uint8_t col) {
 bool rgbrec_register_record(uint16_t keycode, keyrecord_t *record) {
     (void)keycode;
 
-    if (rgbrec_info.state == RGBREC_STATE_ON) {
+    // knob events have row 252/253: outside the buffer
+    if (rgbrec_info.state == RGBREC_STATE_ON && record->event.key.row < MATRIX_ROWS && record->event.key.col < MATRIX_COLS) {
         cycle_rgb_next_color(record->event.key.row, record->event.key.col);
 
         return true;
@@ -213,6 +216,4 @@ bool rgbrec_register_record(uint16_t keycode, keyrecord_t *record) {
     return false;
 }
 
-void eeconfig_init_user_datablock(void) {
-
-}
+// no eeconfig_init_user_datablock() override: QMK's default blanks the paint slots on EEPROM reset

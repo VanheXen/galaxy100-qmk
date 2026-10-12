@@ -76,11 +76,12 @@ typedef struct {
     uint8_t bat_cap;  // index into cap_pct
     uint8_t turbo_hz;
 } settings_t;
-_Static_assert(4 + sizeof(settings_t) == EECONFIG_KB_DATA_SIZE, "EECONFIG_KB_DATA_SIZE mismatch");
+_Static_assert(4 + sizeof(settings_t) <= EECONFIG_KB_DATA_SIZE, "EECONFIG_KB_DATA_SIZE too small");
 
 static const settings_t defaults = {SETTINGS_MAGIC, SL_SMART, 0x80, 2, 3, 2, DEBOUNCE, SOCD_OFF, LOC_HIDDEN, 0, SOCD_PAIRS_AD, 0, HL_OTHERS_OFF, 0, 20};
 
 static const uint8_t cap_pct[] = {100, 75, 50, 25}; // max brightness on battery, % of RGB_MATRIX_MAXIMUM_BRIGHTNESS
+#define STATUS_VAL_MIN 8 // VIA slider minimum: 0 would make the status light invisible
 #define TURBO_HZ_MIN 5
 #define TURBO_HZ_MAX 50
 static settings_t       set;
@@ -175,7 +176,7 @@ static void save_settings(void) {
 
 void power_ui_init(void) {
     eeconfig_read_kb_datablock(&set, 4, sizeof(set));
-    if (set.magic != SETTINGS_MAGIC || set.status_mode >= SL_COUNT || set.dim_idx >= ARRAY_SIZE(dim_opts) || set.off_idx >= ARRAY_SIZE(off_opts) || set.sleep_idx >= ARRAY_SIZE(sleep_opts) || set.socd >= SOCD_COUNT || set.status_loc >= LOC_COUNT || set.debounce_mode > 1 || set.socd_pairs >= SOCD_PAIRS_COUNT || set.auto_os > 1 || set.layer_hl >= HL_COUNT || set.debounce_ms > 20 || set.bat_cap >= ARRAY_SIZE(cap_pct) || set.turbo_hz < TURBO_HZ_MIN || set.turbo_hz > TURBO_HZ_MAX) {
+    if (set.magic != SETTINGS_MAGIC || set.status_mode >= SL_COUNT || set.status_val < STATUS_VAL_MIN || set.dim_idx >= ARRAY_SIZE(dim_opts) || set.off_idx >= ARRAY_SIZE(off_opts) || set.sleep_idx >= ARRAY_SIZE(sleep_opts) || set.socd >= SOCD_COUNT || set.status_loc >= LOC_COUNT || set.debounce_mode > 1 || set.socd_pairs >= SOCD_PAIRS_COUNT || set.auto_os > 1 || set.layer_hl >= HL_COUNT || set.debounce_ms > 20 || set.bat_cap >= ARRAY_SIZE(cap_pct) || set.turbo_hz < TURBO_HZ_MIN || set.turbo_hz > TURBO_HZ_MAX) {
         set = defaults;
         save_settings();
     }
@@ -189,18 +190,29 @@ static void set_led_power(bool on) {
     gpio_write_pin(LED_POWER_EN_PIN, on);
 }
 
-// Brightness actually shown = the user's value, divided when dimmed, capped on
-// battery ("Max brightness on battery"). Any change we did not make ourselves
-// (Fn+arrows, knob, VIA) becomes the new user value. Called every tick; cheap.
+// "Max brightness on battery", applied while drawing: the stored brightness is
+// never touched, so the cap can't leak into EEPROM or fight Fn+arrows.
+static uint8_t bat_cap_val(void) {
+    return on_cable() ? 0xFF : (uint16_t)RGB_MATRIX_MAXIMUM_BRIGHTNESS * cap_pct[set.bat_cap] / 100;
+}
+
+// every effect converts its colors through this hook (quantum/rgb_matrix runners)
+rgb_t rgb_matrix_hsv_to_rgb(hsv_t hsv) {
+    uint8_t v = rgb_matrix_get_val(), cap = bat_cap_val();
+    if (v > cap) hsv.v = (uint16_t)hsv.v * cap / v; // scale, so effects keep their shading
+    return hsv_to_rgb(hsv);
+}
+
+// Brightness actually shown = the user's value, divided when dimmed. Any change
+// we did not make ourselves (Fn+arrows, knob, VIA) becomes the new user value.
+// Called every tick; cheap.
 static uint8_t user_val = 0xFF, applied_val = 0xFF; // 0xFF = not seen yet
 
 static void enter(pui_state_t next) {
-    HSV     hsv = rgb_matrix_get_hsv();
-    uint8_t cap = on_cable() ? 0xFF : (uint16_t)RGB_MATRIX_MAXIMUM_BRIGHTNESS * cap_pct[set.bat_cap] / 100;
+    HSV hsv = rgb_matrix_get_hsv();
 
     if (hsv.v != applied_val) user_val = hsv.v;
     uint8_t want = next == PUI_DIM ? user_val / PUI_DIM_DIVISOR : user_val;
-    want         = MIN(want, cap);
     if (next == PUI_OFF) want = hsv.v; // keep the value, cut the LED power
     set_led_power(next != PUI_OFF);
     if (want != hsv.v) rgb_matrix_sethsv_noeeprom(hsv.h, hsv.s, want);
@@ -226,6 +238,7 @@ static void pairing_task(void) {
     // give up pairing after 3 min and go back to reconnecting
     if (st == MD_STATE_PAIRING && timer_elapsed32(pair_since) > PUI_PAIR_TIMEOUT) {
         uint8_t devs = wireless_get_current_devs();
+        pair_since   = timer_read32(); // once, not every tick until the module answers
         wireless_devs_change(devs, devs, false);
     }
 }
@@ -265,7 +278,7 @@ static void pairing_indicators(void) {
     } else {
         return;
     }
-    rgb_matrix_set_color(led, on ? c.r : 0, on ? c.g : 0, on ? c.b : 0);
+    ui_set_color(led, on ? c.r : 0, on ? c.g : 0, on ? c.b : 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -339,11 +352,12 @@ static void events_task(void) {
 }
 
 void power_ui_task(void) {
-    static uint32_t inq  = 0;
-    uint32_t        idle = last_input_activity_elapsed();
+    uint32_t idle = last_input_activity_elapsed();
 
-    // the wireless stack only polls battery when not on USB; poll on cable too
-    if (on_cable() && timer_elapsed32(inq) > 10000 && md_inquire_bat()) inq = timer_read32();
+    // Asleep (or going to sleep): the MCU still wakes briefly between stop cycles
+    // (module UART traffic). Touching the LED power here would switch the LEDs
+    // back on for the whole night, showing only the lock lights on a black frame.
+    if (lpwr_get_state() != LPWR_NORMAL) return;
 
     pairing_task();
     bat_filter_task();
@@ -404,9 +418,24 @@ bool power_ui_process_record(uint16_t keycode, keyrecord_t *record) {
 // ---------------------------------------------------------------------------
 // LED overlays
 
+uint8_t ui_val(void) {
+    uint8_t v = MIN(rgb_matrix_get_val(), bat_cap_val());
+    return v ? v : 0x20; // brightness 0: keep indicators faintly visible
+}
+
+void ui_set_color(uint8_t led, uint8_t r, uint8_t g, uint8_t b) {
+    uint16_t v = ui_val();
+    rgb_matrix_set_color(led, r * v / 255, g * v / 255, b * v / 255);
+}
+
 static void set_key(uint8_t row, uint8_t col, uint8_t r, uint8_t g, uint8_t b) {
     uint8_t led = g_led_config.matrix_co[row][col];
     if (led != NO_LED) rgb_matrix_set_color(led, r, g, b);
+}
+
+static void set_key_ui(uint8_t row, uint8_t col, uint8_t r, uint8_t g, uint8_t b) {
+    uint8_t led = g_led_config.matrix_co[row][col];
+    if (led != NO_LED) ui_set_color(led, r, g, b);
 }
 
 static RGB battery_color(uint8_t pct) {
@@ -501,7 +530,7 @@ void power_ui_indicators(void) {
         if (bat_show_at) {
             RGB c = battery_color(pct);
             for (uint8_t i = 0; i < 10; i++) {
-                set_key(1, 1 + i, i < lit ? c.r : 0, i < lit ? c.g : 0, i < lit ? c.b : 0);
+                set_key_ui(1, 1 + i, i < lit ? c.r : 0, i < lit ? c.g : 0, i < lit ? c.b : 0);
             }
         }
     }
@@ -529,10 +558,10 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
         return;
     }
 
-    uint8_t *field = NULL, max = 0xFF;
+    uint8_t *field = NULL, min = 0, max = 0xFF;
     switch (*value_id) {
         case id_status_mode: field = &set.status_mode, max = SL_COUNT - 1; break;
-        case id_status_val:  field = &set.status_val; break;
+        case id_status_val:  field = &set.status_val, min = STATUS_VAL_MIN; break;
         case id_dim_after:   field = &set.dim_idx, max = ARRAY_SIZE(dim_opts) - 1; break;
         case id_off_after:   field = &set.off_idx, max = ARRAY_SIZE(off_opts) - 1; break;
         case id_sleep_after: field = &set.sleep_idx, max = ARRAY_SIZE(sleep_opts) - 1; break;
@@ -544,7 +573,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
         case id_auto_os:     field = &set.auto_os, max = 1; break;
         case id_layer_hl:    field = &set.layer_hl, max = HL_COUNT - 1; break;
         case id_bat_cap:     field = &set.bat_cap, max = ARRAY_SIZE(cap_pct) - 1; break;
-        case id_turbo_hz:    field = &set.turbo_hz, max = TURBO_HZ_MAX; break;
+        case id_turbo_hz:    field = &set.turbo_hz, min = TURBO_HZ_MIN, max = TURBO_HZ_MAX; break;
     }
 
     if (*value_id == id_battery_text && *command_id == id_custom_get_value) {
@@ -585,7 +614,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
 
     switch (*command_id) {
         case id_custom_set_value:
-            if (value[0] <= max && !(field == &set.turbo_hz && value[0] < TURBO_HZ_MIN)) {
+            if (value[0] >= min && value[0] <= max) {
                 *field = value[0];
                 apply_settings();
             }
@@ -640,8 +669,7 @@ void power_ui_layer_highlight(void) {
                 rgb_matrix_set_color(led, 0, 0, 0);
             } else if (set.layer_hl == HL_WHITE || !rgb_matrix_is_enabled()) {
                 // backlight off (Fn+T): active keys have no color of their own, show them in white
-                uint8_t v = MAX(rgb_matrix_get_val(), 0x40);
-                rgb_matrix_set_color(led, v, v, v);
+                ui_set_color(led, 0xFF, 0xFF, 0xFF);
             }
         }
     }
@@ -649,6 +677,6 @@ void power_ui_layer_highlight(void) {
     uint8_t led = mode_key_led(wireless_get_current_devs());
     if (led != NO_LED) {
         RGB c = connection_color();
-        rgb_matrix_set_color(led, c.r, c.g, c.b);
+        ui_set_color(led, c.r, c.g, c.b);
     }
 }

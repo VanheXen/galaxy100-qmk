@@ -10,7 +10,6 @@
 #endif
 
 static uint8_t wls_devs = DEVS_USB;
-bool im_test_rate_flag;
 
 void last_matrix_activity_trigger(void);
 
@@ -88,6 +87,7 @@ void wireless_send_nkro(report_nkro_t *report) {
 
             for (uint8_t c = 0; c < key_count; c++) {
                 for (n = 0; n < NKRO_REPORT_BITS && !temp_report_nkro.bits[n]; n++) {}
+                if (n == NKRO_REPORT_BITS) break; // no bits left
                 usageid = (n << 3) | biton(temp_report_nkro.bits[n]);
 #ifdef NKRO_ENABLE
                 del_key_bit(&temp_report_nkro, usageid);
@@ -137,8 +137,7 @@ void wireless_send_nkro(report_nkro_t *report) {
         memset(&temp_report_keyboard, 0, sizeof(temp_report_keyboard));
     }
 
-    // wireless_driver.send_keyboard(&temp_report_keyboard);
-    while(smsg_is_busy()) wireless_task();
+    // both reports are queued in order; never pump wireless_task() from inside a send
     host_keyboard_send(&temp_report_keyboard);
     md_send_nkro(wls_report_nkro);
 }
@@ -190,16 +189,12 @@ void wireless_send_extra(report_extra_t *report) {
     if (report != NULL) {
         usage = report->usage;
 
-        switch (usage) {
-            case 0x81:
-            case 0x82:
-            case 0x83: { // system usage
-                usage = 0x01 << (usage - 0x81);
-                md_send_system((uint8_t *)&usage);
-            } break;
-            default: {
-                md_send_consumer((uint8_t *)&usage);
-            } break;
+        // by report id: a system release (usage 0) must clear the system bits, not consumer
+        if (report->report_id == REPORT_ID_SYSTEM) {
+            usage = (usage >= 0x81 && usage <= 0x83) ? 0x01 << (usage - 0x81) : 0;
+            md_send_system((uint8_t *)&usage);
+        } else {
+            md_send_consumer((uint8_t *)&usage);
         }
     }
 }
@@ -234,43 +229,6 @@ uint8_t wireless_get_current_devs(void) {
     return wls_devs;
 }
 
-void usb_mode_test_report_task(void) {
-    extern void host_mouse_send(report_mouse_t * report);
-
-    static uint8_t flip                = 0;
-    static report_mouse_t mouse_format = {0};
-
-    switch (flip) {
-        case 0: { 
-            mouse_format.x = 10;
-            mouse_format.y = 0;
-            host_mouse_send(&mouse_format);
-            flip = 1;
-        } break;
-        case 1: { 
-            mouse_format.x = 0;
-            mouse_format.y = -10;
-            host_mouse_send(&mouse_format);
-            flip = 2;
-        } break;
-        case 2: { 
-            mouse_format.x = -10;
-            mouse_format.y = 0;
-            host_mouse_send(&mouse_format);
-            flip = 3;
-        } break;
-        case 3: { 
-            mouse_format.x = 0;
-            mouse_format.y = 10;
-            host_mouse_send(&mouse_format);
-            flip = 0;
-        } break;
-        default: {
-            flip = 0;
-        } break;
-    }
-}
-
 void wireless_pre_task(void) __attribute__((weak));
 void wireless_pre_task(void) {}
 
@@ -279,17 +237,36 @@ void wireless_post_task(void) {}
 
 void wireless_task(void) {
 
+    static uint8_t last_state = MD_STATE_NONE;
+
     wireless_pre_task();
     lpwr_task();
     md_main_task();
     wireless_post_task();
+
+    // link back up: keys or knob released while it was down never reached the
+    // host, so send the current state again
+    if (*md_getp_state() != last_state) {
+        last_state = *md_getp_state();
+        if (last_state == MD_STATE_CONNECTED && get_transport() == TRANSPORT_WLS) {
+            report_extra_t extra = {.report_id = REPORT_ID_SYSTEM};
+            report_mouse_t mouse = {0};
+            send_keyboard_report();
+            wireless_send_extra(&extra);
+            extra.report_id = REPORT_ID_CONSUMER;
+            wireless_send_extra(&extra);
+            wireless_send_mouse(&mouse);
+        }
+    }
 
     /* usb_remote_wakeup() should be invoked last so that we have chance
      * to switch to wireless after start-up when usb is not connected
      */
     if (get_transport() == TRANSPORT_USB) {
         usb_remote_wakeup();
-    } else if (lpwr_get_state() == LPWR_NORMAL) {
+    }
+    // battery in every mode (also USB on battery: the critical-level sleep needs it)
+    if (lpwr_get_state() == LPWR_NORMAL) {
         static uint32_t inqtimer = 0x00;
 
         if (sync_timer_elapsed32(inqtimer) >= (WLS_INQUIRY_BAT_TIME)) {
@@ -302,6 +279,5 @@ void wireless_task(void) {
 
 // called from the keyboard's housekeeping_task_kb
 void wireless_housekeeping_task(void) {
-    if (wireless_get_current_devs() == DEVS_USB && im_test_rate_flag) usb_mode_test_report_task();
     wireless_task();
 }

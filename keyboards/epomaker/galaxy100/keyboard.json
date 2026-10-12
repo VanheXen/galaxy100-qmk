@@ -72,6 +72,12 @@
         },
         {
             "key": "TURBO"
+        },
+        {
+            "key": "DICE"
+        },
+        {
+            "key": "COIN"
         }
     ],
     "dynamic_keymap": {

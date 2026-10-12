@@ -8,10 +8,6 @@
 #    define SMSG_NUM 40
 #endif
 
-#ifndef SMSG_PAYLOAD_LEN
-#    define SMSG_PAYLOAD_LEN 50
-#endif
-
 #define SMSG_BUF_SIZE (SMSG_NUM * SMSG_PAYLOAD_LEN)
 #define END_PTR ((smsg_ptr_t *)&smsg_instance.ptr[SMSG_NUM - 1])
 #define FREE_SPACE ((uint32_t)(&smsg_buffer[SMSG_BUF_SIZE - 1] - smsg_instance.buffer))
