@@ -14,7 +14,8 @@ which keeps settings); coming from an older build, or if anything looks wrong, d
 
 **Verification status.** Compiled locally (`via` and `default`, exit 0, no warnings) and by CI run
 39147350401 at commit 08e7f2c (branch `fix/2026101802`, success). The CI run for the later docs-only
-commit 3e7c970 was not read. **Nothing was flashed or board-tested: the 15 firmware rows fixed below
+commit 3e7c970 (run 39147575461) was read afterwards: success. The docs commit 966171b (run 39147805837), the
+merge to main 15d42b3 (run 39147815671) and tag v2026101802 (run 39147815456) also read success. **Nothing was flashed or board-tested: the 15 firmware rows fixed below
 (plus P19, left open) are NOT board-verified** (no board report exists). No tag or release at the time
 of this entry.
 
