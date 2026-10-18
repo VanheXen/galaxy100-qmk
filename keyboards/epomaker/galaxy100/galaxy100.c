@@ -222,8 +222,11 @@ void usb_power_disconnect(void) {
 
 void suspend_power_down_kb(void) {
 
+    // P69: all three LED supplies, same set as lpwr_presleep_hook
 #    ifdef LED_POWER_EN_PIN
     gpio_write_pin_low(LED_POWER_EN_PIN);
+    gpio_write_pin_low(HS_LED_AUX_POWER_PIN);
+    gpio_write_pin_low(HS_LED_BOOSTING_PIN);
 #    endif
 
     suspend_power_down_user();
@@ -233,6 +236,8 @@ void suspend_wakeup_init_kb(void) {
 
 #    ifdef LED_POWER_EN_PIN
     gpio_write_pin_high(LED_POWER_EN_PIN);
+    gpio_write_pin_high(HS_LED_AUX_POWER_PIN);
+    gpio_write_pin_high(HS_LED_BOOSTING_PIN);
 #    endif
 
     wireless_devs_change(wireless_get_current_devs(), wireless_get_current_devs(), false);
@@ -798,6 +803,11 @@ void rgb_matrix_start_rec(void) {
     }
 }
 
+// P70: the Win lock only applies on the Windows layers (Mac Cmd keys bypass no_gui)
+bool win_lock_active(void) {
+    return !keymap_is_mac_system() && keymap_config.no_gui;
+}
+
 bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 
     if (!rgb_matrix_indicators_advanced_user(led_min, led_max)) {
@@ -822,7 +832,7 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
         ui_set_color(HS_RGB_INDEX_NUM_LOCK, 0xFF, 0xFF, 0xFF);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, RGB_BLACK);
-    if (!keymap_is_mac_system() && keymap_config.no_gui)
+    if (win_lock_active())
         ui_set_color(HS_RGB_INDEX_WIN_LOCK, 0xFF, 0xFF, 0xFF);
     else if (!power_ui_layer_highlight_active()) // P29: on a Fn layer the highlight already colored this key
         rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, RGB_BLACK);

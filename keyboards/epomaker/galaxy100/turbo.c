@@ -17,6 +17,11 @@ static uint16_t      turbo_kc;
 static keypos_t      turbo_pos, arm_pos;
 static bool          down;
 static uint32_t      next_toggle;
+static uint32_t      last_input; // last physical key press, for the P68 idle limit
+
+// P68: firing counts as typing (no dim or sleep) only for this long after the last
+// real key press; then Turbo stops, so idle dim and deep sleep can start.
+#define TURBO_IDLE_LIMIT_MS (5UL * 60UL * 1000UL)
 
 void last_matrix_activity_trigger(void); // quantum/keyboard.c
 
@@ -33,6 +38,9 @@ void turbo_stop(void) {
 bool turbo_process_record(uint16_t keycode, keyrecord_t *record) {
     // knob events carry no matrix position (row 252/253): never arm or fire from them
     if (IS_ENCODEREVENT(record->event)) return true;
+
+    // P68: any physical key press (including the arming and stopping ones) renews the firing window
+    if (record->event.pressed) last_input = timer_read32();
 
     if (keycode == TURBO) {
         if (record->event.pressed) {
@@ -62,6 +70,10 @@ bool turbo_process_record(uint16_t keycode, keyrecord_t *record) {
 
 void turbo_task(void) {
     if (state != TURBO_ON) return;
+    if (timer_elapsed32(last_input) >= TURBO_IDLE_LIMIT_MS) { // P68
+        turbo_stop();
+        return;
+    }
     if ((int32_t)(timer_read32() - next_toggle) < 0) return;
     next_toggle += 500 / turbo_rate_hz; // half a period down, half up
     if (down)

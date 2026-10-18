@@ -17,3 +17,5 @@ void    ui_set_color(uint8_t led, uint8_t r, uint8_t g, uint8_t b);
 void ui_set_color_capped(uint8_t led, uint8_t r, uint8_t g, uint8_t b);
 // True while the Fn-layer highlight owns the key colors.
 bool power_ui_layer_highlight_active(void);
+// True when the Win lock is on and applies (Windows layers only); galaxy100.c.
+bool win_lock_active(void);

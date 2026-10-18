@@ -535,7 +535,7 @@ static void status_light(void) {
             if (pct) c = battery_color(pct);
             break;
         case SL_LOCKS:
-            if (keymap_config.no_gui)
+            if (win_lock_active()) // P70
                 c = (RGB){0xFF, 0x00, 0x00};
             else if (host_keyboard_led_state().caps_lock)
                 c = (RGB){0xFF, 0xFF, 0xFF};
