@@ -22,12 +22,16 @@ typedef union {
         uint8_t record_channel : 4;
         uint8_t record_last_mode;
         uint8_t last_btdevs : 3;
+        uint8_t hue_preset; // P41: position of the RM_HUEU preset cycle
     };
 } confinfo_t;
 // stored as 4 bytes at offset 0 of the keyboard datablock:
-// byte 0: flag(1) devs(3) record_channel(4) | byte 1: record_last_mode | byte 2: last_btdevs(3) | byte 3: unused
+// byte 0: flag(1) devs(3) record_channel(4) | byte 1: record_last_mode | byte 2: last_btdevs(3) | byte 3: hue_preset (was unused)
 _Static_assert(sizeof(confinfo_t) == sizeof(uint32_t), "confinfo_t is stored as 4 bytes in the kb datablock");
 confinfo_t confinfo;
+
+// RM_HUEU cycles through these {hue, saturation} presets
+static const uint8_t hue_presets[][2] = {{0, 255}, {85, 255}, {170, 255}, {43, 255}, {191, 255}, {128, 255}, {0, 0}};
 
 typedef struct {
     bool active;
@@ -106,6 +110,7 @@ void eeconfig_confinfo_default(void) {
     confinfo.record_channel   = 0;
     confinfo.record_last_mode = 0xff;
     confinfo.last_btdevs      = 1;
+    confinfo.hue_preset       = 0;
 
     eeconfig_init_user_datablock();
     eeconfig_confinfo_update(confinfo.raw);
@@ -133,6 +138,10 @@ void eeconfig_confinfo_init(void) {
     if (confinfo.record_channel >= RGBREC_CHANNEL_NUM) {
         confinfo.record_channel = 0;
         fixed                   = true;
+    }
+    if (confinfo.hue_preset >= ARRAY_SIZE(hue_presets)) { // byte was unused before P41
+        confinfo.hue_preset = 0;
+        fixed               = true;
     }
     if (fixed) eeconfig_confinfo_update(confinfo.raw);
 }
@@ -397,11 +406,13 @@ static bool rgbrec_process_record(uint16_t keycode, keyrecord_t *record) {
         case MO(_FL):
         case MO(_MFL): {
             if (!record->event.pressed) {
-                if (no_record_fg == true) {
-                    no_record_fg = false;
+                // P39: the first Fn release only ends the Fn+End chord that started
+                // recording and is skipped; every later Fn release paints.
+                if (no_record_fg) {
                     rgbrec_register_record(keycode, record);
+                } else {
+                    no_record_fg = true;
                 }
-                no_record_fg = true;
             }
             return true;
         }
@@ -576,10 +587,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         } break;
         case RM_HUEU: {
             if (record->event.pressed) {
-                static const uint8_t presets[][2] = {{0, 255}, {85, 255}, {170, 255}, {43, 255}, {191, 255}, {128, 255}, {0, 0}};
-                static uint8_t       preset       = 0;
-                preset                            = (preset + 1) % ARRAY_SIZE(presets);
-                rgb_matrix_sethsv(presets[preset][0], presets[preset][1], rgb_matrix_get_val());
+                confinfo.hue_preset = (confinfo.hue_preset + 1) % ARRAY_SIZE(hue_presets);
+                eeconfig_confinfo_update(confinfo.raw);
+                rgb_matrix_sethsv(hue_presets[confinfo.hue_preset][0], hue_presets[confinfo.hue_preset][1], rgb_matrix_get_val());
             }
 
             return false;
