@@ -296,6 +296,7 @@ static uint32_t via_dirty_at = 0; // last keyboard-side change
 
 // "87 % - charging" (ASCII, null terminated)
 static void battery_text(char *out, uint8_t size) {
+    if (out == NULL || size == 0) return; // P22: never write out[size - 1] with size 0
     uint8_t     pct   = bat_pct();
     const char *state = !on_cable() ? "on battery" : bat_full() ? "full" : "charging";
     char        buf[32];
@@ -583,7 +584,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
     }
 
     if (*value_id == id_battery_text && *command_id == id_custom_get_value) {
-        battery_text((char *)value, length - 3);
+        if (length > 3) battery_text((char *)value, length - 3); // P22: no unsigned underflow on a short packet
         return;
     }
     // factory reset: only after the unlock toggle (VIA has no confirm dialog)

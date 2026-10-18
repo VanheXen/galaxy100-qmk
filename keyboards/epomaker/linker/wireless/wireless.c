@@ -194,6 +194,8 @@ void wireless_send_mouse(report_mouse_t *report) {
         wls_report_mouse.buttons = report->buttons;
         wls_report_mouse.x       = report->x;
         wls_report_mouse.y       = report->y;
+        // P19 (OPEN, board test): z <- h and h <- v looks swapped against QMK (v = wheel, h = tilt), but the
+        // module's report layout is unknown. Kept as shipped until wheel/tilt is tested over BT and 2.4G.
         wls_report_mouse.z       = report->h;
         wls_report_mouse.h       = report->v;
     }
