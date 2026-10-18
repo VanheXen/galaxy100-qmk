@@ -4,6 +4,17 @@ Status: **AWAITING OWNER REPORT. Nothing has been flashed or tested; every row b
 
 An AI agent cannot flash the board. The owner flashes the build and reports pass or fail per row. Until a report arrives, nothing here is claimed as tested.
 
+## Flash attempt, 2026-10-18 (run 2026101802, remedy)
+
+The board (USB VID 342D, PID E489) is attached and running normal firmware. Everything possible short of a keypress was done:
+
+- CI artifact download: HTTP 401 (artifact zips need a GitHub login; `gh` is not authenticated). Artifact sha256 `8af2e39b...b6bb` could therefore NOT be checked against a download.
+- Substitute: built commit a97e3e4 (the commit run 39130103928 compiled, `VIA_FIRMWARE_VERSION 2026101801`) locally from a git worktree: `epomaker_galaxy100_via.bin`, 71600 B, sha256 `2f2d6d8cc513d77d25e45e1365bfb35f6bd8c8b496d21b017cbe57fe26c9d5f8`, at `exports/runs/55f165e4-1ddb-49ff-a8f5-872ecb6202ee/baseline-2026101801/`. This is a local rebuild, not the CI binary (different toolchain, so a different hash is expected). The version is stored as a number, not text, so it could not be confirmed inside the .bin; it comes from config.h at a97e3e4.
+- Flash: `wb32-dfu-updater_cli` (QMK MSYS) found, and `flash.bat` (backup of the current image, then flash) written next to the .bin. Run result: "No DFU capable USB device available". The board is not in the bootloader, and entering it needs Fn+Right Shift+Esc (or Esc held while plugging in), which an AI agent cannot press.
+- Result: NOT FLASHED. All 11 rows stay "no report".
+
+To finish: put the board in the bootloader, run `flash.bat` from that folder, then fill the Outcome cells below.
+
 ## What to flash
 
 - CI run 39130103928: https://github.com/VanheXen/galaxy100-qmk/actions/runs/39130103928 (branch `fix/2026101801`, success).
