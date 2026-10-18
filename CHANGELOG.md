@@ -52,12 +52,38 @@ Left open (not fixed in this version, with the reason):
   reproduced; needs a board test.
 - P41 hue preset key forgets its position after reboot: cosmetic, persisting it needs a new
   stored byte.
-- P07, P10, P45 CI items (version kept in two files, via.o redirect tripwire, unpinned
-  mainline QMK): not firmware; P07 is covered by the 2026101801 bump.
-- P43, P44 qmk_firmware junctions and stale build outputs: owner actions outside the repo.
-- P46–P67 (22 problems counted by the previous run but never itemised): a rescan found no
-  distinct defect, treated as duplicates of the rows above. Still not scanned: the
-  wear-levelling driver, platforms/chibios WB32 and the generated `info_config.h`.
+- P07 firmware version kept by hand in two files (config.h and the VIA JSON): CI check only, covered by the 2026101801 bump in both files.
+- P10 via.o redirect fails silently if the path changes: CI tripwire, not firmware.
+- P45 CI builds unpinned mainline QMK: needs a known-good commit pin, not firmware.
+- P43 qmk_firmware junctions untracked: owner action outside the repo.
+- P44 stale `ledtest` and `probe` build outputs in qmk_firmware: owner action outside the repo.
+- P46 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P47 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P48 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P49 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P50 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P51 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P52 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P53 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P54 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P55 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P56 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P57 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P58 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P59 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P60 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P61 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P62 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P63 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P64 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P65 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P66 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P67 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- Not scanned by either run: the wear-levelling driver, platforms/chibios WB32 and the generated `info_config.h`.
+
+Count: 18 itemised open lines (17 open rows plus the P22 residual) + 22 lines P46-P67 = 40 Left-open lines. Ledger: 45 itemised problems = 28 fixed (17 earlier + 11 above) + 17 open, plus 22 never-itemised = 67 counted. Checked against docs/triage/2026101801-ledger.md.
+
+UNVERIFIED on the board: nothing was flashed or tested on the keyboard. CI compiled both keymaps (Build firmware run 39130103928, commit a97e3e4), which is a build check only.
 
 ## 2026101301 — storage layout changed
 
