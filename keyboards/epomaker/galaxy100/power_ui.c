@@ -58,6 +58,7 @@ enum { HL_OFF, HL_OTHERS_OFF, HL_WHITE, HL_COUNT }; // highlight keys of the hel
 enum { LOC_HIDDEN, LOC_ESC, LOC_LCTRL, LOC_COUNT }; // where the status light is drawn
 
 #define SETTINGS_MAGIC 0xA8
+#define SETTINGS_VERSION 1 // bump when a field is added or its meaning changes
 
 typedef struct {
     uint8_t magic;
@@ -75,10 +76,11 @@ typedef struct {
     uint8_t layer_hl;
     uint8_t bat_cap;  // index into cap_pct
     uint8_t turbo_hz;
+    uint8_t version;  // P34: appended last, so every older field keeps its offset
 } settings_t;
 _Static_assert(4 + sizeof(settings_t) <= EECONFIG_KB_DATA_SIZE, "EECONFIG_KB_DATA_SIZE too small");
 
-static const settings_t defaults = {SETTINGS_MAGIC, SL_SMART, 0x80, 2, 3, 2, DEBOUNCE, SOCD_OFF, LOC_HIDDEN, 0, SOCD_PAIRS_AD, 0, HL_OTHERS_OFF, 0, 20};
+static const settings_t defaults = {SETTINGS_MAGIC, SL_SMART, 0x80, 2, 3, 2, DEBOUNCE, SOCD_OFF, LOC_HIDDEN, 0, SOCD_PAIRS_AD, 0, HL_OTHERS_OFF, 0, 20, SETTINGS_VERSION};
 
 static const uint8_t cap_pct[] = {100, 75, 50, 25}; // max brightness on battery, % of RGB_MATRIX_MAXIMUM_BRIGHTNESS
 #define STATUS_VAL_MIN 8 // VIA slider minimum: 0 would make the status light invisible
@@ -177,10 +179,40 @@ static void save_settings(void) {
 
 void power_ui_init(void) {
     eeconfig_read_kb_datablock(&set, 4, sizeof(set));
-    if (set.magic != SETTINGS_MAGIC || set.status_mode >= SL_COUNT || set.status_val < STATUS_VAL_MIN || set.dim_idx >= ARRAY_SIZE(dim_opts) || set.off_idx >= ARRAY_SIZE(off_opts) || set.sleep_idx >= ARRAY_SIZE(sleep_opts) || set.socd >= SOCD_COUNT || set.status_loc >= LOC_COUNT || set.debounce_mode > 1 || set.socd_pairs >= SOCD_PAIRS_COUNT || set.auto_os > 1 || set.layer_hl >= HL_COUNT || set.debounce_ms > 20 || set.bat_cap >= ARRAY_SIZE(cap_pct) || set.turbo_hz < TURBO_HZ_MIN || set.turbo_hz > TURBO_HZ_MAX) {
-        set = defaults;
-        save_settings();
+    bool changed = false;
+    if (set.magic != SETTINGS_MAGIC) {
+        set     = defaults; // not our data at all: reset everything
+        changed = true;
+    } else {
+        // P34: a bad field resets only itself; the other settings survive.
+        // A version byte that differs (older build: it read the byte after the old
+        // layout) is taken as "migrate": same checks, then stamp the version.
+#define PUI_FIX(bad, field) \
+    if (bad) {              \
+        set.field = defaults.field; \
+        changed   = true;   \
     }
+        PUI_FIX(set.status_mode >= SL_COUNT, status_mode)
+        PUI_FIX(set.status_val < STATUS_VAL_MIN, status_val)
+        PUI_FIX(set.dim_idx >= ARRAY_SIZE(dim_opts), dim_idx)
+        PUI_FIX(set.off_idx >= ARRAY_SIZE(off_opts), off_idx)
+        PUI_FIX(set.sleep_idx >= ARRAY_SIZE(sleep_opts), sleep_idx)
+        PUI_FIX(set.debounce_ms > 20, debounce_ms)
+        PUI_FIX(set.socd >= SOCD_COUNT, socd)
+        PUI_FIX(set.status_loc >= LOC_COUNT, status_loc)
+        PUI_FIX(set.debounce_mode > 1, debounce_mode)
+        PUI_FIX(set.socd_pairs >= SOCD_PAIRS_COUNT, socd_pairs)
+        PUI_FIX(set.auto_os > 1, auto_os)
+        PUI_FIX(set.layer_hl >= HL_COUNT, layer_hl)
+        PUI_FIX(set.bat_cap >= ARRAY_SIZE(cap_pct), bat_cap)
+        PUI_FIX(set.turbo_hz < TURBO_HZ_MIN || set.turbo_hz > TURBO_HZ_MAX, turbo_hz)
+#undef PUI_FIX
+        if (set.version != SETTINGS_VERSION) {
+            set.version = SETTINGS_VERSION;
+            changed     = true;
+        }
+    }
+    if (changed) save_settings();
     apply_settings();
 }
 
@@ -534,7 +566,7 @@ void power_ui_indicators(void) {
         uint32_t fill_end = bat_show_at + (uint32_t)level * PUI_BAT_STEP;
         uint8_t  lit      = MIN(level, timer_elapsed32(bat_show_at) / PUI_BAT_STEP + 1);
 
-        if (bat_release_at) {
+        if (pct && bat_release_at) {
             uint32_t drain_from = not_before(bat_release_at, fill_end) ? bat_release_at : fill_end; // later of the two
             if (not_before(timer_read32(), drain_from)) {
                 uint32_t gone = timer_elapsed32(drain_from) / PUI_BAT_STEP;
@@ -542,7 +574,17 @@ void power_ui_indicators(void) {
                 if (!lit) bat_show_at = bat_release_at = 0;
             }
         }
-        if (bat_show_at) {
+        // P31: no reading yet (level 0 lights nothing): blink the "1" key white for
+        // 1.5 s (or while held) so the press is visibly answered. A reading that
+        // arrives meanwhile switches to the normal bar.
+        if (bat_show_at && !pct) {
+            if (bat_release_at && timer_elapsed32(bat_show_at) >= 1500) {
+                bat_show_at = bat_release_at = 0;
+            } else {
+                uint8_t on = blink(250) ? 0xFF : 0;
+                set_key_ui(1, 1, on, on, on);
+            }
+        } else if (bat_show_at) {
             RGB c = battery_color(pct);
             for (uint8_t i = 0; i < 10; i++) {
                 set_key_ui(1, 1 + i, i < lit ? c.r : 0, i < lit ? c.g : 0, i < lit ? c.b : 0);
