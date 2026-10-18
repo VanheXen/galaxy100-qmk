@@ -121,7 +121,7 @@ static void bat_filter_task(void) {
     static uint32_t differs_since = 0;
     uint8_t         raw           = *md_getp_bat();
 
-    if (!raw) return;
+    if (!raw || raw > 100) return; // 0 = no reading, >100 is not a percentage: keep the last good value
     if (!bat_shown || charging_state) {
         bat_shown     = raw;
         differs_since = 0;
@@ -187,7 +187,10 @@ void power_ui_init(void) {
 // Idle dimming
 
 static void set_led_power(bool on) {
+    // same three pins the sleep/wake hooks in galaxy100.c switch
     gpio_write_pin(LED_POWER_EN_PIN, on);
+    gpio_write_pin(HS_LED_AUX_POWER_PIN, on);
+    gpio_write_pin(HS_LED_BOOSTING_PIN, on);
 }
 
 // "Max brightness on battery", applied while drawing: the stored brightness is
@@ -367,7 +370,9 @@ void power_ui_task(void) {
 #endif
 
     // critically low on battery for 10 s: force deep sleep to protect the cell
-    uint8_t pct = bat_pct();
+    // read the raw module value: the 60 s smoothed one would delay this by a minute
+    uint8_t pct = *md_getp_bat();
+    if (!pct || pct > 100) pct = bat_pct(); // no valid raw reading: fall back to the smoothed value
     if (!on_cable() && pct && pct <= PUI_BAT_CRITICAL) {
         if (!critical_since) critical_since = timer_read32();
         if (timer_elapsed32(critical_since) > PUI_CRITICAL_HOLD) {
@@ -412,7 +417,8 @@ bool power_ui_process_record(uint16_t keycode, keyrecord_t *record) {
         }
         return false;
     }
-    return socd_process_record(keycode, record);
+    // SOCD runs after Turbo, from process_record_kb (galaxy100.c), so Turbo can claim a SOCD key first
+    return true;
 }
 
 // ---------------------------------------------------------------------------

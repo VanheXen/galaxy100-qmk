@@ -3,13 +3,7 @@
 
 #include QMK_KEYBOARD_H
 
-enum layers {
-    _BL = 0,
-    _FL,
-    _MBL,
-    _MFL,
-    _FBL,
-};
+// enum layers lives in galaxy100.h (included through QMK_KEYBOARD_H)
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 

@@ -123,12 +123,15 @@ static void md_receive_msg_task(void) {
     static uint8_t data_remain = 0x00;
     static uint32_t last_rx    = 0x00;
 
+    // a half frame left over for 50 ms with nothing waiting is noise or a byte lost on wake-up: resync
+    if (!uart_available()) {
+        if (data_count && sync_timer_elapsed32(last_rx) > 50) data_count = 0;
+        return;
+    }
+
     while (uart_available()) {
         uint8_t data = uart_read();
-
-        // a half frame left over for 50 ms is noise or a byte lost on wake-up: resync
-        if (data_count && sync_timer_elapsed32(last_rx) > 50) data_count = 0;
-        last_rx = sync_timer_read32();
+        last_rx      = sync_timer_read32();
 
         switch (data_count) {
             case 0: { // cmd
@@ -265,9 +268,17 @@ static void md_flush_pending(void) {
     }
 }
 
+static uint8_t smsg_retry = 0;
+
+// Forget everything queued for the old link (commands, in-flight packet, held-back key states).
+void md_clear_queue(void) {
+    smsg_clear();
+    smsg_retry = 0;
+    memset(pend_len, 0, sizeof(pend_len));
+}
+
 static void md_send_pkt_task(void) {
     static uint32_t smsg_timer = 0x00;
-    static uint8_t smsg_retry  = 0;
 
     md_flush_pending();
 
@@ -484,7 +495,7 @@ void md_send_vpid(uint16_t vid, uint16_t pid) {
     uint8_t sdata[4 + 2] = {0x00};
     uint32_t vpid;
 
-    vpid = (pid << 16) | vid;
+    vpid = ((uint32_t)pid << 16) | vid;
 
     sdata[0] = MD_SND_CMD_VPID;
     memcpy(&sdata[1], &vpid, sizeof(vpid));

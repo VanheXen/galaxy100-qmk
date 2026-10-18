@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
+#include "galaxy100.h"
 #include "rgb_record/rgb_record.h"
 #include "party.h"
 #ifdef WIRELESS_ENABLE
 #    include "wireless.h"
 #    include "control.h"
 #    include "turbo.h"
+#    include "socd.h"
 #endif
 #include "power_ui.h"
 #include "usb_main.h"
@@ -22,6 +24,9 @@ typedef union {
         uint8_t last_btdevs : 3;
     };
 } confinfo_t;
+// stored as 4 bytes at offset 0 of the keyboard datablock:
+// byte 0: flag(1) devs(3) record_channel(4) | byte 1: record_last_mode | byte 2: last_btdevs(3) | byte 3: unused
+_Static_assert(sizeof(confinfo_t) == sizeof(uint32_t), "confinfo_t is stored as 4 bytes in the kb datablock");
 confinfo_t confinfo;
 
 typedef struct {
@@ -34,18 +39,10 @@ typedef struct {
     void (*blink_cb)(uint8_t);
 } hs_rgb_indicator_t;
 
-enum layers {
-    _BL = 0,
-    _FL,
-    _MBL,
-    _MFL,
-    _FBL,
-};
-
 hs_rgb_indicator_t hs_rgb_indicators[HS_RGB_INDICATOR_COUNT];
 
 void rgb_blink_dir(void);
-static keyrecord_t *current_record; // set in process_record_kb, read by rgb_blink_dir
+static bool current_is_encoder; // set in process_record_kb, read by rgb_blink_dir
 void rgb_matrix_hs_indicator(void);
 void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint8_t times);
 void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time);
@@ -89,7 +86,24 @@ void eeconfig_confinfo_init(void) {
     confinfo.raw = eeconfig_confinfo_read();
     if (!confinfo.raw) {
         eeconfig_confinfo_default();
+        return;
     }
+
+    // validate saved values (older layouts left these bytes unused or different)
+    bool fixed = false;
+    if (confinfo.last_btdevs < DEVS_BT1 || confinfo.last_btdevs > DEVS_BT3) {
+        confinfo.last_btdevs = DEVS_BT1;
+        fixed                = true;
+    }
+    if (!(confinfo.devs == DEVS_USB || (confinfo.devs >= DEVS_BT1 && confinfo.devs <= DEVS_BT3) || confinfo.devs == DEVS_2G4)) {
+        confinfo.devs = DEVS_USB;
+        fixed         = true;
+    }
+    if (confinfo.record_channel >= RGBREC_CHANNEL_NUM) {
+        confinfo.record_channel = 0;
+        fixed                   = true;
+    }
+    if (fixed) eeconfig_confinfo_update(confinfo.raw);
 }
 
 void keyboard_post_init_kb(void) {
@@ -100,11 +114,17 @@ void keyboard_post_init_kb(void) {
 
     eeconfig_confinfo_init();
 
+    // saved default layer must be one of the two base layers (core may not check)
+    {
+        uint8_t base = get_highest_layer(default_layer_state);
+        if (base != _BL && base != _MBL) set_single_persistent_default_layer(_BL);
+    }
+
 #ifdef LED_POWER_EN_PIN
     gpio_set_pin_output(LED_POWER_EN_PIN);
     gpio_write_pin_high(LED_POWER_EN_PIN);
-    gpio_set_pin_output(A9);
-    gpio_write_pin_high(A9);
+    gpio_set_pin_output(HS_LED_AUX_POWER_PIN);
+    gpio_write_pin_high(HS_LED_AUX_POWER_PIN);
 
     gpio_set_pin_output(HS_LED_BOOSTING_PIN);
     gpio_write_pin_high(HS_LED_BOOSTING_PIN);
@@ -376,7 +396,7 @@ static uint32_t os_switch_cb(uint32_t trigger_time, void *cb_arg) {
 
 bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
-    current_record = record;
+    current_is_encoder = IS_ENCODEREVENT(record->event);
 
     if (!rgbrec_process_record(keycode, record)) {
         return false;
@@ -393,6 +413,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         return false;
     }
     if (!turbo_process_record(keycode, record)) {
+        return false;
+    }
+    if (!socd_process_record(keycode, record)) {
         return false;
     }
     if (process_record_wls(keycode, record) != true) {
@@ -438,8 +461,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 if (rgb_matrix_get_val() <= RGB_MATRIX_VAL_STEP) {
                     rgb_blink_dir();
-
-                    rgb_matrix_set_color_all(0, 0, 0);
                 }
             }
         } break;
@@ -471,10 +492,11 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                     return false;
                 }
                 if (!rgbrec_is_started()) {
-                    rgbrec_start(confinfo.record_channel);
-                    no_record_fg = false;
-                    rec_time     = timer_read32();
-                    rgbrec_set_close_all();
+                    if (rgbrec_start(confinfo.record_channel)) {
+                        no_record_fg = false;
+                        rec_time     = timer_read32();
+                        rgbrec_set_close_all();
+                    }
                 } else {
                     rec_time = 0;
                     rgbrec_end(confinfo.record_channel);
@@ -598,7 +620,7 @@ void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset) {
 
 void rgb_blink_dir(void) {
     // limit feedback on the arrows only for Fn+arrow presses, not for knob turns
-    if (current_record && IS_ENCODEREVENT(current_record->event)) return;
+    if (current_is_encoder) return;
 
     rgb_matrix_hs_indicator_set(HS_RGB_BLINK_INDEX_VAI, (RGB){0x20, 0x20, 0x20}, 250, 3);
     rgb_matrix_hs_indicator_set(HS_RGB_BLINK_INDEX_VAD, (RGB){0x20, 0x20, 0x20}, 250, 3);
@@ -616,8 +638,20 @@ void nkr_indicators_hook(uint8_t index) {
 
 void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint8_t times) {
 
+    int slot = -1;
     for (int i = 0; i < HS_RGB_INDICATOR_COUNT; i++) {
-        if (!hs_rgb_indicators[i].active) {
+        // reuse the live slot of the same key instead of filling the pool (not for the whole-board flash)
+        if (index != 0xFF && hs_rgb_indicators[i].active && hs_rgb_indicators[i].index == index) {
+            slot = i;
+            break;
+        }
+    }
+    for (int i = 0; slot < 0 && i < HS_RGB_INDICATOR_COUNT; i++) {
+        if (!hs_rgb_indicators[i].active) slot = i;
+    }
+    if (slot >= 0) {
+        int i = slot;
+        {
             hs_rgb_indicators[i].active   = true;
             hs_rgb_indicators[i].timer    = timer_read32();
             hs_rgb_indicators[i].interval = interval;
@@ -629,7 +663,6 @@ void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint
             else {
                 hs_rgb_indicators[i].blink_cb = nkr_indicators_hook;
             }
-            break;
         }
     }
 }
@@ -637,9 +670,9 @@ void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint
 void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time) {
 
     for (int i = 0; i < HS_RGB_INDICATOR_COUNT; i++) {
-        if (hs_rgb_indicators[i].index == index) {
-            hs_rgb_indicators[i].times  = 0;
-            hs_rgb_indicators[i].active = false;
+        if (hs_rgb_indicators[i].active && hs_rgb_indicators[i].index == index) {
+            hs_rgb_indicators[i].times = remain_time * 2;
+            if (!remain_time) hs_rgb_indicators[i].active = false;
             break;
         }
     }
@@ -759,14 +792,14 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 void lpwr_presleep_hook(void) {
     turbo_stop();
     gpio_write_pin_low(LED_POWER_EN_PIN);
-    gpio_write_pin_low(A9);
+    gpio_write_pin_low(HS_LED_AUX_POWER_PIN);
     gpio_write_pin_low(HS_LED_BOOSTING_PIN);
 }
 
 void lpwr_wakeup_hook(void) {
 
     gpio_write_pin_high(LED_POWER_EN_PIN);
-    gpio_write_pin_high(A9);
+    gpio_write_pin_high(HS_LED_AUX_POWER_PIN);
     gpio_write_pin_high(HS_LED_BOOSTING_PIN);
     party_boot();
 }

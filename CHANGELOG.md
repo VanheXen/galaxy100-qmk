@@ -4,6 +4,61 @@ Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`). Entr
 **storage layout changed** need an Esc-hold flash (settings reset) when coming from an older
 build; the others keep keymap, macros and settings.
 
+## 2026101801
+
+Triage of the problems left by the previous bug scan run. Ledger: [docs/triage/2026101801-ledger.md](docs/triage/2026101801-ledger.md).
+No fix adds a persisted setting, so settings, keymap and macros are kept (no Esc-hold flash needed).
+Not compiled locally (CI only) and not tested on the board.
+
+Fixed:
+- The volume knob now works in the `default` build too (P04).
+- Typing while the wireless link is down no longer floods the module with device-select
+  commands, so the queue stays free and the keyboard can go to sleep (P11).
+- Switching mode or starting pairing now drops commands still queued for the old link, so the
+  switch takes effect at once and PAIR is no longer lost (P12).
+- Switching between wireless devices now releases held keys, consumer, system and mouse buttons
+  on the old host, so nothing stays stuck (P13).
+- A saved mode or Bluetooth host from an older build that is not valid no longer makes the
+  keyboard loop on mode switching; it falls back to USB / Bluetooth 1 (P14).
+- Idle lights-off on battery now also cuts the second LED supply and the boost converter, not
+  just the LED enable pin, so the board draws less while the lights are off (P23).
+- Critical battery (3 %) now forces deep sleep about 10 s after the module reports it, instead
+  of up to 70 s later (P26).
+- Key indicators no longer pile up or hide behind stale ones: repeating one restarts it, and
+  switching Win/Mac cancels the other OS light reliably (P27).
+- A corrupt saved default layer is reset to the Windows layout at boot (P32).
+- An invalid saved Custom Paint slot is reset to slot 1, and a refused recording start no longer
+  wipes the paint buffer (P33).
+- Turbo can now take over a key that is also in a SOCD pair when SOCD is on (P38).
+
+Left open (not fixed in this version, with the reason):
+- P15 two mode keys held together can start pairing on the wrong device: rare chord, a safe fix
+  means redesigning the shared long-press token.
+- P16 stale link-state frame after a switch: unconfirmed, needs a UART trace (the P12 flush
+  shrinks the window).
+- P17 ACK has no packet id: the module protocol cannot match it; needs measured ACK latency.
+- P19 wireless mouse wheel axes may be swapped: module report layout unknown, needs a hardware
+  test; a wrong guess would break working scroll.
+- P22 residual `battery_text` size guard: not a live defect, VIA packets are fixed at 32 bytes.
+- P24 cable pin read without debounce: no drain or sleep effect, needs a PCB fact.
+- P25 charge-complete pin read raw: only a cosmetic false "full" flash, needs a plug-in test.
+- P28 direct-color indicators ignore the battery brightness cap: flashes last seconds, energy
+  negligible.
+- P29 Fn-layer highlight cannot light the Win-lock key: cosmetic.
+- P31 Fn+Space shows nothing without a battery reading: cosmetic.
+- P34 one bad VIA setting resets all settings: init already resets safely; a version byte would
+  change the storage layout for no current bug.
+- P39 Fn painting on every second release while painting: code matches its intent, not
+  reproduced; needs a board test.
+- P41 hue preset key forgets its position after reboot: cosmetic, persisting it needs a new
+  stored byte.
+- P07, P10, P45 CI items (version kept in two files, via.o redirect tripwire, unpinned
+  mainline QMK): not firmware; P07 is covered by the 2026101801 bump.
+- P43, P44 qmk_firmware junctions and stale build outputs: owner actions outside the repo.
+- P46–P67 (22 problems counted by the previous run but never itemised): a rescan found no
+  distinct defect, treated as duplicates of the rows above. Still not scanned: the
+  wear-levelling driver, platforms/chibios WB32 and the generated `info_config.h`.
+
 ## 2026101301 — storage layout changed
 
 New:

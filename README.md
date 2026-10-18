@@ -49,6 +49,8 @@ cd qmk_firmware && git submodule update --init --recursive --depth 1
 qmk compile -kb epomaker/galaxy100 -km via
 ```
 
+The `default` keymap (`-km default`) also builds and, since 2026101801, has a working volume knob.
+
 ## Flash
 
 **Back up your stock firmware first.** Enter the bootloader (hold **Esc** while plugging in the
