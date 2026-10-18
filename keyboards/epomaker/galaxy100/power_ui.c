@@ -58,6 +58,7 @@ enum { HL_OFF, HL_OTHERS_OFF, HL_WHITE, HL_COUNT }; // highlight keys of the hel
 enum { LOC_HIDDEN, LOC_ESC, LOC_LCTRL, LOC_COUNT }; // where the status light is drawn
 
 #define SETTINGS_MAGIC 0xA8
+#define SETTINGS_VERSION 1 // bump when a field is added or its meaning changes
 
 typedef struct {
     uint8_t magic;
@@ -75,10 +76,11 @@ typedef struct {
     uint8_t layer_hl;
     uint8_t bat_cap;  // index into cap_pct
     uint8_t turbo_hz;
+    uint8_t version;  // P34: appended last, so every older field keeps its offset
 } settings_t;
 _Static_assert(4 + sizeof(settings_t) <= EECONFIG_KB_DATA_SIZE, "EECONFIG_KB_DATA_SIZE too small");
 
-static const settings_t defaults = {SETTINGS_MAGIC, SL_SMART, 0x80, 2, 3, 2, DEBOUNCE, SOCD_OFF, LOC_HIDDEN, 0, SOCD_PAIRS_AD, 0, HL_OTHERS_OFF, 0, 20};
+static const settings_t defaults = {SETTINGS_MAGIC, SL_SMART, 0x80, 2, 3, 2, DEBOUNCE, SOCD_OFF, LOC_HIDDEN, 0, SOCD_PAIRS_AD, 0, HL_OTHERS_OFF, 0, 20, SETTINGS_VERSION};
 
 static const uint8_t cap_pct[] = {100, 75, 50, 25}; // max brightness on battery, % of RGB_MATRIX_MAXIMUM_BRIGHTNESS
 #define STATUS_VAL_MIN 8 // VIA slider minimum: 0 would make the status light invisible
@@ -89,7 +91,8 @@ static settings_t       set;
 extern uint8_t debounce_rt_ms, debounce_rt_mode; // debounce_rt.c
 extern uint8_t turbo_rate_hz;                     // turbo.c
 void           debounce_rt_reset(void);
-extern bool    charging_state; // galaxy100.c: cable present
+extern bool    cable_present;   // galaxy100.c: debounced cable pin (P24)
+extern bool    bat_full_stable; // galaxy100.c: debounced charge-complete pin (P25)
 void           lpwr_set_timeout_value(uint32_t timeout);
 
 typedef enum { PUI_FULL, PUI_DIM, PUI_OFF } pui_state_t;
@@ -99,11 +102,11 @@ static uint32_t    bat_show_at = 0; // Fn+Space pressed (0 = not showing)
 static uint32_t    bat_release_at = 0; // Fn+Space released (0 = still held)
 
 static bool on_cable(void) {
-    return charging_state;
+    return cable_present;
 }
 
 static bool bat_full(void) {
-    return gpio_read_pin(BAT_FULL_PIN) == BAT_FULL_STATE;
+    return bat_full_stable;
 }
 
 #define PUI_BAT_SETTLE 60000
@@ -121,8 +124,8 @@ static void bat_filter_task(void) {
     static uint32_t differs_since = 0;
     uint8_t         raw           = *md_getp_bat();
 
-    if (!raw) return;
-    if (!bat_shown || charging_state) {
+    if (!raw || raw > 100) return; // 0 = no reading, >100 is not a percentage: keep the last good value
+    if (!bat_shown || cable_present) {
         bat_shown     = raw;
         differs_since = 0;
         return;
@@ -176,10 +179,40 @@ static void save_settings(void) {
 
 void power_ui_init(void) {
     eeconfig_read_kb_datablock(&set, 4, sizeof(set));
-    if (set.magic != SETTINGS_MAGIC || set.status_mode >= SL_COUNT || set.status_val < STATUS_VAL_MIN || set.dim_idx >= ARRAY_SIZE(dim_opts) || set.off_idx >= ARRAY_SIZE(off_opts) || set.sleep_idx >= ARRAY_SIZE(sleep_opts) || set.socd >= SOCD_COUNT || set.status_loc >= LOC_COUNT || set.debounce_mode > 1 || set.socd_pairs >= SOCD_PAIRS_COUNT || set.auto_os > 1 || set.layer_hl >= HL_COUNT || set.debounce_ms > 20 || set.bat_cap >= ARRAY_SIZE(cap_pct) || set.turbo_hz < TURBO_HZ_MIN || set.turbo_hz > TURBO_HZ_MAX) {
-        set = defaults;
-        save_settings();
+    bool changed = false;
+    if (set.magic != SETTINGS_MAGIC) {
+        set     = defaults; // not our data at all: reset everything
+        changed = true;
+    } else {
+        // P34: a bad field resets only itself; the other settings survive.
+        // A version byte that differs (older build: it read the byte after the old
+        // layout) is taken as "migrate": same checks, then stamp the version.
+#define PUI_FIX(bad, field) \
+    if (bad) {              \
+        set.field = defaults.field; \
+        changed   = true;   \
     }
+        PUI_FIX(set.status_mode >= SL_COUNT, status_mode)
+        PUI_FIX(set.status_val < STATUS_VAL_MIN, status_val)
+        PUI_FIX(set.dim_idx >= ARRAY_SIZE(dim_opts), dim_idx)
+        PUI_FIX(set.off_idx >= ARRAY_SIZE(off_opts), off_idx)
+        PUI_FIX(set.sleep_idx >= ARRAY_SIZE(sleep_opts), sleep_idx)
+        PUI_FIX(set.debounce_ms > 20, debounce_ms)
+        PUI_FIX(set.socd >= SOCD_COUNT, socd)
+        PUI_FIX(set.status_loc >= LOC_COUNT, status_loc)
+        PUI_FIX(set.debounce_mode > 1, debounce_mode)
+        PUI_FIX(set.socd_pairs >= SOCD_PAIRS_COUNT, socd_pairs)
+        PUI_FIX(set.auto_os > 1, auto_os)
+        PUI_FIX(set.layer_hl >= HL_COUNT, layer_hl)
+        PUI_FIX(set.bat_cap >= ARRAY_SIZE(cap_pct), bat_cap)
+        PUI_FIX(set.turbo_hz < TURBO_HZ_MIN || set.turbo_hz > TURBO_HZ_MAX, turbo_hz)
+#undef PUI_FIX
+        if (set.version != SETTINGS_VERSION) {
+            set.version = SETTINGS_VERSION;
+            changed     = true;
+        }
+    }
+    if (changed) save_settings();
     apply_settings();
 }
 
@@ -187,7 +220,10 @@ void power_ui_init(void) {
 // Idle dimming
 
 static void set_led_power(bool on) {
+    // same three pins the sleep/wake hooks in galaxy100.c switch
     gpio_write_pin(LED_POWER_EN_PIN, on);
+    gpio_write_pin(HS_LED_AUX_POWER_PIN, on);
+    gpio_write_pin(HS_LED_BOOSTING_PIN, on);
 }
 
 // "Max brightness on battery", applied while drawing: the stored brightness is
@@ -293,6 +329,7 @@ static uint32_t via_dirty_at = 0; // last keyboard-side change
 
 // "87 % - charging" (ASCII, null terminated)
 static void battery_text(char *out, uint8_t size) {
+    if (out == NULL || size == 0) return; // P22: never write out[size - 1] with size 0
     uint8_t     pct   = bat_pct();
     const char *state = !on_cable() ? "on battery" : bat_full() ? "full" : "charging";
     char        buf[32];
@@ -367,7 +404,9 @@ void power_ui_task(void) {
 #endif
 
     // critically low on battery for 10 s: force deep sleep to protect the cell
-    uint8_t pct = bat_pct();
+    // read the raw module value: the 60 s smoothed one would delay this by a minute
+    uint8_t pct = *md_getp_bat();
+    if (!pct || pct > 100) pct = bat_pct(); // no valid raw reading: fall back to the smoothed value
     if (!on_cable() && pct && pct <= PUI_BAT_CRITICAL) {
         if (!critical_since) critical_since = timer_read32();
         if (timer_elapsed32(critical_since) > PUI_CRITICAL_HOLD) {
@@ -412,7 +451,8 @@ bool power_ui_process_record(uint16_t keycode, keyrecord_t *record) {
         }
         return false;
     }
-    return socd_process_record(keycode, record);
+    // SOCD runs after Turbo, from process_record_kb (galaxy100.c), so Turbo can claim a SOCD key first
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -426,6 +466,13 @@ uint8_t ui_val(void) {
 void ui_set_color(uint8_t led, uint8_t r, uint8_t g, uint8_t b) {
     uint16_t v = ui_val();
     rgb_matrix_set_color(led, r * v / 255, g * v / 255, b * v / 255);
+}
+
+// P28: fixed-color indicators (the pool in galaxy100.c) honour only the battery
+// cap: they keep their own brightness otherwise, so a dimmed effect cannot hide them.
+void ui_set_color_capped(uint8_t led, uint8_t r, uint8_t g, uint8_t b) {
+    uint16_t cap = bat_cap_val();
+    rgb_matrix_set_color(led, r * cap / 255, g * cap / 255, b * cap / 255);
 }
 
 static void set_key(uint8_t row, uint8_t col, uint8_t r, uint8_t g, uint8_t b) {
@@ -488,7 +535,7 @@ static void status_light(void) {
             if (pct) c = battery_color(pct);
             break;
         case SL_LOCKS:
-            if (keymap_config.no_gui)
+            if (win_lock_active()) // P70
                 c = (RGB){0xFF, 0x00, 0x00};
             else if (host_keyboard_led_state().caps_lock)
                 c = (RGB){0xFF, 0xFF, 0xFF};
@@ -519,7 +566,7 @@ void power_ui_indicators(void) {
         uint32_t fill_end = bat_show_at + (uint32_t)level * PUI_BAT_STEP;
         uint8_t  lit      = MIN(level, timer_elapsed32(bat_show_at) / PUI_BAT_STEP + 1);
 
-        if (bat_release_at) {
+        if (pct && bat_release_at) {
             uint32_t drain_from = not_before(bat_release_at, fill_end) ? bat_release_at : fill_end; // later of the two
             if (not_before(timer_read32(), drain_from)) {
                 uint32_t gone = timer_elapsed32(drain_from) / PUI_BAT_STEP;
@@ -527,7 +574,17 @@ void power_ui_indicators(void) {
                 if (!lit) bat_show_at = bat_release_at = 0;
             }
         }
-        if (bat_show_at) {
+        // P31: no reading yet (level 0 lights nothing): blink the "1" key white for
+        // 1.5 s (or while held) so the press is visibly answered. A reading that
+        // arrives meanwhile switches to the normal bar.
+        if (bat_show_at && !pct) {
+            if (bat_release_at && timer_elapsed32(bat_show_at) >= 1500) {
+                bat_show_at = bat_release_at = 0;
+            } else {
+                uint8_t on = blink(250) ? 0xFF : 0;
+                set_key_ui(1, 1, on, on, on);
+            }
+        } else if (bat_show_at) {
             RGB c = battery_color(pct);
             for (uint8_t i = 0; i < 10; i++) {
                 set_key_ui(1, 1 + i, i < lit ? c.r : 0, i < lit ? c.g : 0, i < lit ? c.b : 0);
@@ -577,7 +634,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
     }
 
     if (*value_id == id_battery_text && *command_id == id_custom_get_value) {
-        battery_text((char *)value, length - 3);
+        if (length > 3) battery_text((char *)value, length - 3); // P22: no unsigned underflow on a short packet
         return;
     }
     // factory reset: only after the unlock toggle (VIA has no confirm dialog)
@@ -652,6 +709,12 @@ bool process_detected_host_os_kb(os_variant_t os) {
 // While a Fn layer is held, keys that do nothing different there go dark, so the
 // active ones stand out (optionally shown in white). Runs before the other
 // indicators so Caps/status lights still draw on top.
+
+// P29: true while the Fn-layer highlight decides each key's color (so the
+// Win-lock lamp must not force its key black over it).
+bool power_ui_layer_highlight_active(void) {
+    return get_highest_layer(layer_state) > get_highest_layer(default_layer_state) && set.layer_hl != HL_OFF;
+}
 
 void power_ui_layer_highlight(void) {
     uint8_t layer = get_highest_layer(layer_state);

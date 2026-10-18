@@ -40,6 +40,17 @@ void smsg_init(void) {
     smsg_instance.state     = smsg_state_free;
 }
 
+// Drop every queued message (and the one in flight): used when the link they were meant for is gone.
+void smsg_clear(void) {
+
+    smsg_instance.buffer    = smsg_buffer;
+    smsg_instance.in_ptr    = smsg_instance.ptr;
+    smsg_instance.out_ptr   = smsg_instance.ptr;
+    smsg_instance.ptr->head = smsg_instance.buffer;
+    smsg_instance.ptr->tail = smsg_instance.buffer;
+    smsg_instance.state     = smsg_state_free;
+}
+
 bool smsg_push(uint8_t *buf, uint32_t size) {
 
     if (smsg_instance.in_ptr == END_PTR) {

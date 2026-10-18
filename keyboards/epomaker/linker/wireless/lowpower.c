@@ -152,8 +152,8 @@ bool lpwr_is_allow_timeout(void) {
 
 bool lpwr_is_allow_presleep_hook(void) __attribute__((weak));
 bool lpwr_is_allow_presleep_hook(void) {
-    extern bool charging_state;
-    if ((wireless_get_current_devs() == DEVS_USB) && (!charging_state)) {
+    extern bool cable_present;
+    if ((wireless_get_current_devs() == DEVS_USB) && (!cable_present)) {
 
         if (USB_DRIVER.state != USB_STOP) {
             usb_power_disconnect();

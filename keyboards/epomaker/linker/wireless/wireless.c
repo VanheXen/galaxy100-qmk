@@ -9,11 +9,20 @@
 #    define WLS_INQUIRY_BAT_TIME 3000
 #endif
 
+// Send-path invariants kept from 2026101301 (checked again in 2026101801, see the triage ledger):
+//  1. Resend cap: an unacknowledged packet is resent up to MD_SEND_PKT_RETRY (40) times, then dropped
+//     (module.c, md_send_pkt_task). Do not lower it or add a second limit here.
+//  2. Queued-only: every report goes through md_send_*() into the queue (module.c). Never write to the
+//     UART from here and never pump wireless_task() from inside a send.
+//  3. Releases survive: key/consumer/system/mouse states are held in module.c's pend_buf when the queue is
+//     full and queued later, so a release is never lost. wireless_devs_change() clears that backlog first
+//     (P12) and only then queues the releases for the old host (P13).
 static uint8_t wls_devs = DEVS_USB;
 
 void last_matrix_activity_trigger(void);
 
 uint8_t wireless_keyboard_leds(void);
+static void wireless_reselect(void);
 void wireless_send_keyboard(report_keyboard_t *report);
 void wireless_send_nkro(report_nkro_t *report);
 void wireless_send_mouse(report_mouse_t *report);
@@ -32,6 +41,23 @@ void wireless_init(void) {
     md_init();
 }
 
+// P11: link down, a report arrived. Re-send device-select at most once per 500 ms
+// (was: every report, which filled the queue and held off sleep). The report is dropped.
+#ifndef WLS_RESELECT_INTERVAL
+#    define WLS_RESELECT_INTERVAL 500
+#endif
+static void wireless_reselect(void) {
+    static uint32_t timer = 0;
+    static bool     armed = false;
+
+    if (armed && sync_timer_elapsed32(timer) < WLS_RESELECT_INTERVAL) {
+        return;
+    }
+    armed = true;
+    timer = sync_timer_read32();
+    wireless_devs_change(wls_devs, wls_devs, false);
+}
+
 uint8_t wireless_keyboard_leds(void) {
 
     if (*md_getp_state() == MD_STATE_CONNECTED) {
@@ -48,7 +74,7 @@ void wireless_send_keyboard(report_keyboard_t *report) {
     uint8_t wls_report_kb[MD_SND_CMD_KB_LEN] = {0};
 
     if (*md_getp_state() != MD_STATE_CONNECTED) {
-        wireless_devs_change(wls_devs, wls_devs, false);
+        wireless_reselect();
         return;
     }
 
@@ -67,7 +93,7 @@ void wireless_send_nkro(report_nkro_t *report) {
     }
 
     if (*md_getp_state() != MD_STATE_CONNECTED) {
-        wireless_devs_change(wls_devs, wls_devs, false);
+        wireless_reselect();
         return;
     }
 
@@ -114,6 +140,7 @@ void wireless_send_nkro(report_nkro_t *report) {
             uint8_t idx, n = 0;
 
             for (n = 0; n < NKRO_REPORT_BITS && !temp_report_nkro.bits[n]; n++) {}
+            if (n == NKRO_REPORT_BITS) break; // no bits left
             usageid = (n << 3) | biton(temp_report_nkro.bits[n]);
 #ifdef NKRO_ENABLE
             del_key_bit(&temp_report_nkro, usageid);
@@ -159,7 +186,7 @@ void wireless_send_mouse(report_mouse_t *report) {
     wls_report_mouse_t wls_report_mouse = {0};
 
     if (*md_getp_state() != MD_STATE_CONNECTED) {
-        wireless_devs_change(wls_devs, wls_devs, false);
+        wireless_reselect();
         return;
     }
 
@@ -167,6 +194,8 @@ void wireless_send_mouse(report_mouse_t *report) {
         wls_report_mouse.buttons = report->buttons;
         wls_report_mouse.x       = report->x;
         wls_report_mouse.y       = report->y;
+        // P19 (OPEN, board test): z <- h and h <- v looks swapped against QMK (v = wheel, h = tilt), but the
+        // module's report layout is unknown. Kept as shipped until wheel/tilt is tested over BT and 2.4G.
         wls_report_mouse.z       = report->h;
         wls_report_mouse.h       = report->v;
     }
@@ -182,7 +211,7 @@ void wireless_send_extra(report_extra_t *report) {
     uint16_t usage = 0;
 
     if (*md_getp_state() != MD_STATE_CONNECTED) {
-        wireless_devs_change(wls_devs, wls_devs, false);
+        wireless_reselect();
         return;
     }
 
@@ -206,13 +235,29 @@ void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset) __a
 void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset) {}
 
 void wireless_devs_change(uint8_t old_devs, uint8_t new_devs, bool reset) {
-    bool changed = (old_devs == DEVS_USB) ? (new_devs != DEVS_USB) : (new_devs == DEVS_USB);
+    bool changed        = (old_devs == DEVS_USB) ? (new_devs != DEVS_USB) : (new_devs == DEVS_USB);
+    bool device_changed = (wls_devs != new_devs) || reset;
+
+    if (device_changed) {
+        // P12: drop commands still queued for the old link, so the switch/PAIR goes out at once
+        md_clear_queue();
+
+        // P13: release held keys on the old host while its link is still up
+        // (USB<->wireless is released by set_transport)
+        if (get_transport() == TRANSPORT_WLS && *md_getp_state() == MD_STATE_CONNECTED) {
+            report_mouse_t mouse = {0};
+            clear_keyboard();
+            host_consumer_send(0);
+            host_system_send(0);
+            host_mouse_send(&mouse);
+        }
+    }
 
     if (changed) {
         set_transport((new_devs != DEVS_USB) ? TRANSPORT_WLS : TRANSPORT_USB);
     }
 
-    if ((wls_devs != new_devs) || reset) {
+    if (device_changed) {
         *md_getp_state()     = MD_STATE_DISCONNECTED;
         *md_getp_indicator() = 0;
     }

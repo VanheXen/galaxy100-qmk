@@ -121,12 +121,12 @@ void usb_remote_wakeup(void) {
 #else
 
     static bool host_asleep = false;
-    extern bool charging_state;
+    extern bool cable_present;
 
     if ((USB_DRIVER.state == USB_SUSPENDED)) {
         // PC asleep with the cable in: lights off, like stock QMK does in its
         // suspend loop (skipped here because of NO_USB_STARTUP_CHECK)
-        if (charging_state && !host_asleep) {
+        if (cable_present && !host_asleep) {
             host_asleep = true;
             suspend_power_down();
         }

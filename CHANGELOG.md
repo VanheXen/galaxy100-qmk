@@ -4,6 +4,132 @@ Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`). Entr
 **storage layout changed** need an Esc-hold flash (settings reset) when coming from an older
 build; the others keep keymap, macros and settings.
 
+## 2026101802 — storage layout changed
+
+Leftovers of 2026101801. Ledger: [docs/triage/2026101802-ledger.md](docs/triage/2026101802-ledger.md).
+Storage layout changed (additive, P34 and P41): a settings version byte and the hue preset byte were
+added. Coming from 2026101801 the settings are migrated and kept (flash with Fn+Right Shift+Esc,
+which keeps settings); coming from an older build, or if anything looks wrong, do an Esc-hold flash
+(full settings reset).
+
+**Verification status.** Compiled locally (`via` and `default`, exit 0, no warnings) and by CI run
+39147350401 at commit 08e7f2c (branch `fix/2026101802`, success). The CI run for the later docs-only
+commit 3e7c970 was not read. **Nothing was flashed or board-tested: the 15 firmware rows fixed below
+(plus P19, left open) are NOT board-verified** (no board report exists). No tag or release at the time
+of this entry.
+
+### Fixed in this build (not board-verified)
+- Holding two wireless mode keys together no longer starts pairing on the wrong device (P15).
+- Switching wireless device no longer shows a stale connected state from the previous link (P16;
+  guard by ordering, no UART trace available).
+- Late acknowledgements from the wireless module can no longer complete the wrong packet (P17;
+  ACK latency not measured).
+- Battery text in VIA is now bounds-guarded (P22).
+- Plugging in or pulling out the USB cable no longer flickers the charging light: cable pin debounced 50 ms (P24).
+- The green "battery full" flash no longer fires falsely when you plug the cable in; it may appear up to 50 ms later (P25).
+- Key indicator flashes now respect the battery brightness cap (P28).
+- The Fn-layer highlight can now light the Win-lock key (P29).
+- Fn+Space with no battery reading blinks key 1 white instead of showing nothing (P31).
+- Settings now carry a version, and one invalid value resets only itself instead of every setting (P34, storage layout changed).
+- Custom Paint: Fn release handling made explicit, no change in behaviour (P39).
+- The hue preset key remembers its position after a reboot (P41, storage layout changed).
+- Turbo now stops after 5 minutes without a key press, so the keyboard can sleep (P68; the 5 minutes is a choice, not measured).
+- With the PC asleep, all LED power supplies are now cut, not just one (P69).
+- The Locks status light no longer shows the Win lock on the Mac layer (P70).
+- CI: VIA version match check between config.h and the VIA JSON (P07), via.o redirect check (P10), QMK pinned to commit 7a1bbf37 (P45). These ran once in CI run 39147350401 and passed.
+
+### Closed by rescan
+- P46 to P67 (22 never-itemised rows): rescan of the wireless and board sources against the correctness or power bug definition found no distinct defect behind them; it found P68 to P70 instead (see ledger rescan record).
+
+### Left open
+- P19 wireless mouse wheel/tilt axis order is unverified: module report layout unknown, needs board evidence; no behaviour change made.
+- P43 qmk_firmware junctions untracked: owner action outside the repo, pending.
+- P44 stale `ledtest` and `probe` build outputs in qmk_firmware: owner action outside the repo, pending.
+- Board test of the 15 fixed firmware rows above and of P19: requested, no report yet.
+
+## 2026101801
+
+Triage of the problems left by the previous bug scan run. Ledger: [docs/triage/2026101801-ledger.md](docs/triage/2026101801-ledger.md).
+No fix adds a persisted setting, so settings, keymap and macros are kept (no Esc-hold flash needed).
+Not compiled locally (CI only) and not tested on the board.
+
+### Fixed
+- The volume knob now works in the `default` build too (P04).
+- Typing while the wireless link is down no longer floods the module with device-select
+  commands, so the queue stays free and the keyboard can go to sleep (P11).
+- Switching mode or starting pairing now drops commands still queued for the old link, so the
+  switch takes effect at once and PAIR is no longer lost (P12).
+- Switching between wireless devices now releases held keys, consumer, system and mouse buttons
+  on the old host, so nothing stays stuck (P13).
+- A saved mode or Bluetooth host from an older build that is not valid no longer makes the
+  keyboard loop on mode switching; it falls back to USB / Bluetooth 1 (P14).
+- Idle lights-off on battery now also cuts the second LED supply and the boost converter, not
+  just the LED enable pin, so the board draws less while the lights are off (P23).
+- Critical battery (3 %) now forces deep sleep about 10 s after the module reports it, instead
+  of up to 70 s later (P26).
+- Key indicators no longer pile up or hide behind stale ones: repeating one restarts it, and
+  switching Win/Mac cancels the other OS light reliably (P27).
+- A corrupt saved default layer is reset to the Windows layout at boot (P32).
+- An invalid saved Custom Paint slot is reset to slot 1, and a refused recording start no longer
+  wipes the paint buffer (P33).
+- Turbo can now take over a key that is also in a SOCD pair when SOCD is on (P38).
+
+### Left open
+
+Not fixed in this version, with the reason:
+- P15 two mode keys held together can start pairing on the wrong device: rare chord, a safe fix
+  means redesigning the shared long-press token.
+- P16 stale link-state frame after a switch: unconfirmed, needs a UART trace (the P12 flush
+  shrinks the window).
+- P17 ACK has no packet id: the module protocol cannot match it; needs measured ACK latency.
+- P19 wireless mouse wheel axes may be swapped: module report layout unknown, needs a hardware
+  test; a wrong guess would break working scroll.
+- P22 residual `battery_text` size guard: not a live defect, VIA packets are fixed at 32 bytes.
+- P24 cable pin read without debounce: no drain or sleep effect, needs a PCB fact.
+- P25 charge-complete pin read raw: only a cosmetic false "full" flash, needs a plug-in test.
+- P28 direct-color indicators ignore the battery brightness cap: flashes last seconds, energy
+  negligible.
+- P29 Fn-layer highlight cannot light the Win-lock key: cosmetic.
+- P31 Fn+Space shows nothing without a battery reading: cosmetic.
+- P34 one bad VIA setting resets all settings: init already resets safely; a version byte would
+  change the storage layout for no current bug.
+- P39 Fn painting on every second release while painting: code matches its intent, not
+  reproduced; needs a board test.
+- P41 hue preset key forgets its position after reboot: cosmetic, persisting it needs a new
+  stored byte.
+- P07 firmware version kept by hand in two files (config.h and the VIA JSON): CI check only, covered by the 2026101801 bump in both files.
+- P10 via.o redirect fails silently if the path changes: CI tripwire, not firmware.
+- P45 CI builds unpinned mainline QMK: needs a known-good commit pin, not firmware.
+- P43 qmk_firmware junctions untracked: owner action outside the repo.
+- P44 stale `ledtest` and `probe` build outputs in qmk_firmware: owner action outside the repo.
+- P46 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P47 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P48 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P49 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P50 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P51 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P52 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P53 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P54 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P55 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P56 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P57 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P58 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P59 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P60 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P61 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P62 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P63 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P64 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P65 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P66 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- P67 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
+- Not scanned by either run: the wear-levelling driver, platforms/chibios WB32 and the generated `info_config.h`.
+
+Count: 18 itemised open lines (17 open rows plus the P22 residual) + 22 lines P46-P67 = 40 Left-open lines. Ledger: 45 itemised problems = 28 fixed (17 earlier + 11 above) + 17 open, plus 22 never-itemised = 67 counted. Checked against docs/triage/2026101801-ledger.md. P46-P67 content was never recorded; a rescan of lowpower.c, control.c, galaxy100.c, power_ui.c, the wear-levelling driver, platforms/chibios WB32 and info_config.h found no defect for them (ledger 'Second rescan'), but that does not prove they are duplicates.
+
+UNVERIFIED on the board: nothing was flashed or tested on the keyboard. CI compiled both keymaps (Build firmware run 39130103928, commit a97e3e4), which is a build check only.
+
 ## 2026101301 — storage layout changed
 
 New:

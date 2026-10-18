@@ -4,7 +4,7 @@
 #include "rgb_record.h"
 #include "rgb_matrix.h"
 #include "eeprom.h"
-#include "nvm_eeprom_eeconfig_internal.h" // expose EECONFIG_USER_DATABLOCK
+#include "eeconfig.h" // public user-datablock accessors
 #include "quantum.h" // for MATRIX_ROWS, MATRIX_COLS, HSV, RGB, etc.
 #include "color.h" // for hsv_to_rgb function
 
@@ -25,7 +25,7 @@ typedef uint16_t (*rgbrec_effects_t)[MATRIX_COLS];
 rgbrec_effects_t p_rgbrec_effects = NULL;
 
 static uint16_t rgbrec_hs_lists[] = RGB_RECORD_HS_LISTS;
-static uint8_t rgbrec_buffer[MATRIX_ROWS * MATRIX_COLS * 2];
+static uint8_t rgbrec_buffer[MATRIX_ROWS * MATRIX_COLS * 2] __attribute__((aligned(2)));
 
 static rgbrec_info_t rgbrec_info = {
     .state   = RGBREC_STATE_OFF,
@@ -69,7 +69,7 @@ void rgbrec_init(uint8_t channel) {
 
     p_rgbrec_effects    = (rgbrec_effects_t)rgbrec_buffer;
     rgbrec_info.state   = RGBREC_STATE_OFF;
-    rgbrec_info.channel = channel;
+    rgbrec_info.channel = (channel < RGBREC_CHANNEL_NUM) ? channel : 0; // never keep an out-of-range slot
     rgbrec_info.value   = rgb_matrix_get_val();
 
     rgbrec_read_current_channel(rgbrec_info.channel);
@@ -113,14 +113,11 @@ bool rgbrec_start(uint8_t channel) {
 }
 
 void rgbrec_update_current_channel(uint8_t channel) {
-    uint32_t addr = 0;
-
     if (channel >= RGBREC_CHANNEL_NUM) {
         return;
     }
 
-    addr = (uint32_t)(RGBREC_EECONFIG_ADDR) + (channel * sizeof(rgbrec_buffer));
-    eeprom_update_block(rgbrec_buffer, (void *)addr, sizeof(rgbrec_buffer));
+    eeconfig_update_user_datablock(rgbrec_buffer, channel * sizeof(rgbrec_buffer), sizeof(rgbrec_buffer));
 }
 
 bool rgbrec_end(uint8_t channel) {
@@ -168,15 +165,12 @@ void rgbrec_set_close_all(void) {
 }
 
 void rgbrec_read_current_channel(uint8_t channel) {
-    uint32_t addr = 0;
-
     if (channel >= RGBREC_CHANNEL_NUM) {
 
         return;
     }
 
-    addr = (uint32_t)(RGBREC_EECONFIG_ADDR) + (channel * sizeof(rgbrec_buffer));
-    eeprom_read_block(rgbrec_buffer, (void *)addr, sizeof(rgbrec_buffer));
+    eeconfig_read_user_datablock(rgbrec_buffer, channel * sizeof(rgbrec_buffer), sizeof(rgbrec_buffer));
 }
 
 bool rgbrec_is_started(void) {

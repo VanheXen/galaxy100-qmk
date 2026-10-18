@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
+#include "galaxy100.h"
 #include "rgb_record/rgb_record.h"
 #include "party.h"
 #ifdef WIRELESS_ENABLE
 #    include "wireless.h"
 #    include "control.h"
 #    include "turbo.h"
+#    include "socd.h"
 #endif
 #include "power_ui.h"
 #include "usb_main.h"
@@ -20,9 +22,16 @@ typedef union {
         uint8_t record_channel : 4;
         uint8_t record_last_mode;
         uint8_t last_btdevs : 3;
+        uint8_t hue_preset; // P41: position of the RM_HUEU preset cycle
     };
 } confinfo_t;
+// stored as 4 bytes at offset 0 of the keyboard datablock:
+// byte 0: flag(1) devs(3) record_channel(4) | byte 1: record_last_mode | byte 2: last_btdevs(3) | byte 3: hue_preset (was unused)
+_Static_assert(sizeof(confinfo_t) == sizeof(uint32_t), "confinfo_t is stored as 4 bytes in the kb datablock");
 confinfo_t confinfo;
+
+// RM_HUEU cycles through these {hue, saturation} presets
+static const uint8_t hue_presets[][2] = {{0, 255}, {85, 255}, {170, 255}, {43, 255}, {191, 255}, {128, 255}, {0, 0}};
 
 typedef struct {
     bool active;
@@ -34,18 +43,10 @@ typedef struct {
     void (*blink_cb)(uint8_t);
 } hs_rgb_indicator_t;
 
-enum layers {
-    _BL = 0,
-    _FL,
-    _MBL,
-    _MFL,
-    _FBL,
-};
-
 hs_rgb_indicator_t hs_rgb_indicators[HS_RGB_INDICATOR_COUNT];
 
 void rgb_blink_dir(void);
-static keyrecord_t *current_record; // set in process_record_kb, read by rgb_blink_dir
+static bool current_is_encoder; // set in process_record_kb, read by rgb_blink_dir
 void rgb_matrix_hs_indicator(void);
 void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint8_t times);
 void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time);
@@ -53,7 +54,38 @@ void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time);
 #define keymap_is_mac_system() ((get_highest_layer(default_layer_state) == _MBL) || (get_highest_layer(default_layer_state) == _MFL))
 
 uint32_t        post_init_timer = 0x00;
-bool            charging_state  = false;
+bool            cable_present   = false; // P24: debounced USB cable pin (A7); true = cable plugged in
+bool            bat_full_stable = false; // P25: debounced charge-complete pin (A15); true = charger reports full
+
+#define PIN_DEBOUNCE_MS 50
+
+// Accept a new pin level only after it has been steady for PIN_DEBOUNCE_MS.
+// The first call adopts the raw level at once so boot does not start with a wrong state.
+static void pin_debounce(bool raw, bool *stable, bool *last, uint32_t *since, bool *primed) {
+    if (!*primed) {
+        *primed = true;
+        *stable = *last = raw;
+        *since          = timer_read32();
+        return;
+    }
+    if (raw != *last) {
+        *last  = raw;
+        *since = timer_read32();
+    } else if (raw != *stable && timer_elapsed32(*since) >= PIN_DEBOUNCE_MS) {
+        *stable = raw;
+    }
+}
+
+static void power_pins_task(void) {
+    static bool     cable_last, full_last, cable_primed, full_primed;
+    static uint32_t cable_since, full_since;
+#ifdef HS_BAT_CABLE_PIN
+    pin_debounce(gpio_read_pin(HS_BAT_CABLE_PIN), &cable_present, &cable_last, &cable_since, &cable_primed);
+#endif
+#ifdef BAT_FULL_PIN
+    pin_debounce(gpio_read_pin(BAT_FULL_PIN) == BAT_FULL_STATE, &bat_full_stable, &full_last, &full_since, &full_primed);
+#endif
+}
 static uint32_t rec_time;
 static uint32_t ee_clr_timer = 0; // Fn+Backspace held since
 #define EE_CLR_HOLD_MS 10000
@@ -78,6 +110,7 @@ void eeconfig_confinfo_default(void) {
     confinfo.record_channel   = 0;
     confinfo.record_last_mode = 0xff;
     confinfo.last_btdevs      = 1;
+    confinfo.hue_preset       = 0;
 
     eeconfig_init_user_datablock();
     eeconfig_confinfo_update(confinfo.raw);
@@ -89,7 +122,28 @@ void eeconfig_confinfo_init(void) {
     confinfo.raw = eeconfig_confinfo_read();
     if (!confinfo.raw) {
         eeconfig_confinfo_default();
+        return;
     }
+
+    // validate saved values (older layouts left these bytes unused or different)
+    bool fixed = false;
+    if (confinfo.last_btdevs < DEVS_BT1 || confinfo.last_btdevs > DEVS_BT3) {
+        confinfo.last_btdevs = DEVS_BT1;
+        fixed                = true;
+    }
+    if (!(confinfo.devs == DEVS_USB || (confinfo.devs >= DEVS_BT1 && confinfo.devs <= DEVS_BT3) || confinfo.devs == DEVS_2G4)) {
+        confinfo.devs = DEVS_USB;
+        fixed         = true;
+    }
+    if (confinfo.record_channel >= RGBREC_CHANNEL_NUM) {
+        confinfo.record_channel = 0;
+        fixed                   = true;
+    }
+    if (confinfo.hue_preset >= ARRAY_SIZE(hue_presets)) { // byte was unused before P41
+        confinfo.hue_preset = 0;
+        fixed               = true;
+    }
+    if (fixed) eeconfig_confinfo_update(confinfo.raw);
 }
 
 void keyboard_post_init_kb(void) {
@@ -100,11 +154,17 @@ void keyboard_post_init_kb(void) {
 
     eeconfig_confinfo_init();
 
+    // saved default layer must be one of the two base layers (core may not check)
+    {
+        uint8_t base = get_highest_layer(default_layer_state);
+        if (base != _BL && base != _MBL) set_single_persistent_default_layer(_BL);
+    }
+
 #ifdef LED_POWER_EN_PIN
     gpio_set_pin_output(LED_POWER_EN_PIN);
     gpio_write_pin_high(LED_POWER_EN_PIN);
-    gpio_set_pin_output(A9);
-    gpio_write_pin_high(A9);
+    gpio_set_pin_output(HS_LED_AUX_POWER_PIN);
+    gpio_write_pin_high(HS_LED_AUX_POWER_PIN);
 
     gpio_set_pin_output(HS_LED_BOOSTING_PIN);
     gpio_write_pin_high(HS_LED_BOOSTING_PIN);
@@ -162,8 +222,11 @@ void usb_power_disconnect(void) {
 
 void suspend_power_down_kb(void) {
 
+    // P69: all three LED supplies, same set as lpwr_presleep_hook
 #    ifdef LED_POWER_EN_PIN
     gpio_write_pin_low(LED_POWER_EN_PIN);
+    gpio_write_pin_low(HS_LED_AUX_POWER_PIN);
+    gpio_write_pin_low(HS_LED_BOOSTING_PIN);
 #    endif
 
     suspend_power_down_user();
@@ -173,6 +236,8 @@ void suspend_wakeup_init_kb(void) {
 
 #    ifdef LED_POWER_EN_PIN
     gpio_write_pin_high(LED_POWER_EN_PIN);
+    gpio_write_pin_high(HS_LED_AUX_POWER_PIN);
+    gpio_write_pin_high(HS_LED_BOOSTING_PIN);
 #    endif
 
     wireless_devs_change(wireless_get_current_devs(), wireless_get_current_devs(), false);
@@ -184,7 +249,7 @@ void suspend_wakeup_init_kb(void) {
 // position without a cable the keyboard runs on battery and must sleep too:
 // the switch has no off position, so this is where it gets left.
 bool lpwr_is_allow_timeout_hook(void) {
-    return wireless_get_current_devs() != DEVS_USB || !charging_state;
+    return wireless_get_current_devs() != DEVS_USB || !cable_present;
 }
 
 void wireless_post_task(void) {
@@ -255,15 +320,32 @@ bool process_record_wls(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {                                                                                       \
                 if (wireless_get_current_devs() != wls_dev)                                                                    \
                     wireless_devs_change(wireless_get_current_devs(), wls_dev, false);                                         \
-                if (wls_process_long_press_token == INVALID_DEFERRED_TOKEN) {                                                  \
-                    keycode_shadow               = keycode; /* other keys meanwhile must not change it */                    \
+                if (wls_held_mask != wls_key_bit) {                                                                            \
+                    /* P15: a second mode key is down: a chord never starts pairing, drop the pending one */                   \
+                    if (wls_process_long_press_token != INVALID_DEFERRED_TOKEN) {                                              \
+                        cancel_deferred_exec(wls_process_long_press_token);                                                    \
+                        wls_process_long_press_token = INVALID_DEFERRED_TOKEN;                                                 \
+                    }                                                                                                          \
+                } else if (wls_process_long_press_token == INVALID_DEFERRED_TOKEN) {                                           \
+                    keycode_shadow               = keycode;                                                                    \
                     wls_process_long_press_token = defer_exec(WLS_KEYCODE_PAIR_TIME, wls_process_long_press, &keycode_shadow); \
                 }                                                                                                              \
-            } else {                                                                                                           \
+            } else if (wls_process_long_press_token != INVALID_DEFERRED_TOKEN && keycode_shadow == keycode) {                  \
                 cancel_deferred_exec(wls_process_long_press_token);                                                            \
                 wls_process_long_press_token = INVALID_DEFERRED_TOKEN;                                                         \
             }                                                                                                                  \
         } while (false)
+
+    // P15: which mode keys are held, tracked on every event (also when the mode check below fails)
+    static uint8_t wls_held_mask = 0;
+    uint8_t        wls_key_bit   = (keycode == KC_BT1) ? 1 : (keycode == KC_BT2) ? 2 : (keycode == KC_BT3) ? 4 : (keycode == KC_2G4) ? 8 : 0;
+    if (wls_key_bit) {
+        if (record->event.pressed) {
+            wls_held_mask |= wls_key_bit;
+        } else {
+            wls_held_mask &= ~wls_key_bit;
+        }
+    }
 
     switch (keycode) {
         case KC_BT1: {
@@ -329,11 +411,13 @@ static bool rgbrec_process_record(uint16_t keycode, keyrecord_t *record) {
         case MO(_FL):
         case MO(_MFL): {
             if (!record->event.pressed) {
-                if (no_record_fg == true) {
-                    no_record_fg = false;
+                // P39: the first Fn release only ends the Fn+End chord that started
+                // recording and is skipped; every later Fn release paints.
+                if (no_record_fg) {
                     rgbrec_register_record(keycode, record);
+                } else {
+                    no_record_fg = true;
                 }
-                no_record_fg = true;
             }
             return true;
         }
@@ -376,7 +460,7 @@ static uint32_t os_switch_cb(uint32_t trigger_time, void *cb_arg) {
 
 bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
-    current_record = record;
+    current_is_encoder = IS_ENCODEREVENT(record->event);
 
     if (!rgbrec_process_record(keycode, record)) {
         return false;
@@ -393,6 +477,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         return false;
     }
     if (!turbo_process_record(keycode, record)) {
+        return false;
+    }
+    if (!socd_process_record(keycode, record)) {
         return false;
     }
     if (process_record_wls(keycode, record) != true) {
@@ -438,8 +525,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 if (rgb_matrix_get_val() <= RGB_MATRIX_VAL_STEP) {
                     rgb_blink_dir();
-
-                    rgb_matrix_set_color_all(0, 0, 0);
                 }
             }
         } break;
@@ -471,10 +556,11 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                     return false;
                 }
                 if (!rgbrec_is_started()) {
-                    rgbrec_start(confinfo.record_channel);
-                    no_record_fg = false;
-                    rec_time     = timer_read32();
-                    rgbrec_set_close_all();
+                    if (rgbrec_start(confinfo.record_channel)) {
+                        no_record_fg = false;
+                        rec_time     = timer_read32();
+                        rgbrec_set_close_all();
+                    }
                 } else {
                     rec_time = 0;
                     rgbrec_end(confinfo.record_channel);
@@ -506,10 +592,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         } break;
         case RM_HUEU: {
             if (record->event.pressed) {
-                static const uint8_t presets[][2] = {{0, 255}, {85, 255}, {170, 255}, {43, 255}, {191, 255}, {128, 255}, {0, 0}};
-                static uint8_t       preset       = 0;
-                preset                            = (preset + 1) % ARRAY_SIZE(presets);
-                rgb_matrix_sethsv(presets[preset][0], presets[preset][1], rgb_matrix_get_val());
+                confinfo.hue_preset = (confinfo.hue_preset + 1) % ARRAY_SIZE(hue_presets);
+                eeconfig_confinfo_update(confinfo.raw);
+                rgb_matrix_sethsv(hue_presets[confinfo.hue_preset][0], hue_presets[confinfo.hue_preset][1], rgb_matrix_get_val());
             }
 
             return false;
@@ -560,7 +645,7 @@ void housekeeping_task_kb(void) {
         soft_reset_keyboard();
     }
 
-    charging_state = gpio_read_pin(HS_BAT_CABLE_PIN);
+    power_pins_task();
 
     // asleep: our sleep, or the PC suspended USB (lights off, see transport.c)
     bool awake = USB_DRIVER.state != USB_SUSPENDED;
@@ -598,7 +683,7 @@ void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset) {
 
 void rgb_blink_dir(void) {
     // limit feedback on the arrows only for Fn+arrow presses, not for knob turns
-    if (current_record && IS_ENCODEREVENT(current_record->event)) return;
+    if (current_is_encoder) return;
 
     rgb_matrix_hs_indicator_set(HS_RGB_BLINK_INDEX_VAI, (RGB){0x20, 0x20, 0x20}, 250, 3);
     rgb_matrix_hs_indicator_set(HS_RGB_BLINK_INDEX_VAD, (RGB){0x20, 0x20, 0x20}, 250, 3);
@@ -616,8 +701,20 @@ void nkr_indicators_hook(uint8_t index) {
 
 void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint8_t times) {
 
+    int slot = -1;
     for (int i = 0; i < HS_RGB_INDICATOR_COUNT; i++) {
-        if (!hs_rgb_indicators[i].active) {
+        // reuse the live slot of the same key instead of filling the pool (not for the whole-board flash)
+        if (index != 0xFF && hs_rgb_indicators[i].active && hs_rgb_indicators[i].index == index) {
+            slot = i;
+            break;
+        }
+    }
+    for (int i = 0; slot < 0 && i < HS_RGB_INDICATOR_COUNT; i++) {
+        if (!hs_rgb_indicators[i].active) slot = i;
+    }
+    if (slot >= 0) {
+        int i = slot;
+        {
             hs_rgb_indicators[i].active   = true;
             hs_rgb_indicators[i].timer    = timer_read32();
             hs_rgb_indicators[i].interval = interval;
@@ -629,7 +726,6 @@ void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint
             else {
                 hs_rgb_indicators[i].blink_cb = nkr_indicators_hook;
             }
-            break;
         }
     }
 }
@@ -637,9 +733,9 @@ void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint
 void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time) {
 
     for (int i = 0; i < HS_RGB_INDICATOR_COUNT; i++) {
-        if (hs_rgb_indicators[i].index == index) {
-            hs_rgb_indicators[i].times  = 0;
-            hs_rgb_indicators[i].active = false;
+        if (hs_rgb_indicators[i].active && hs_rgb_indicators[i].index == index) {
+            hs_rgb_indicators[i].times = remain_time * 2;
+            if (!remain_time) hs_rgb_indicators[i].active = false;
             break;
         }
     }
@@ -666,10 +762,13 @@ void rgb_matrix_hs_indicator(void) {
             }
 
             if ((hs_rgb_indicators[i].times % 2)) {
+                // P28: both paths go through the battery cap
                 if (hs_rgb_indicators[i].index == 0xFF) {
-                    rgb_matrix_set_color_all(hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
+                    for (uint8_t led = 0; led < RGB_MATRIX_LED_COUNT; led++) {
+                        ui_set_color_capped(led, hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
+                    }
                 } else {
-                    rgb_matrix_set_color(hs_rgb_indicators[i].index, hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
+                    ui_set_color_capped(hs_rgb_indicators[i].index, hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
                 }
             } else {
                 if (hs_rgb_indicators[i].index == 0xFF) {
@@ -704,6 +803,11 @@ void rgb_matrix_start_rec(void) {
     }
 }
 
+// P70: the Win lock only applies on the Windows layers (Mac Cmd keys bypass no_gui)
+bool win_lock_active(void) {
+    return !keymap_is_mac_system() && keymap_config.no_gui;
+}
+
 bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 
     if (!rgb_matrix_indicators_advanced_user(led_min, led_max)) {
@@ -728,9 +832,9 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
         ui_set_color(HS_RGB_INDEX_NUM_LOCK, 0xFF, 0xFF, 0xFF);
     else
         rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, RGB_BLACK);
-    if (!keymap_is_mac_system() && keymap_config.no_gui)
+    if (win_lock_active())
         ui_set_color(HS_RGB_INDEX_WIN_LOCK, 0xFF, 0xFF, 0xFF);
-    else
+    else if (!power_ui_layer_highlight_active()) // P29: on a Fn layer the highlight already colored this key
         rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, RGB_BLACK);
 
     rgb_matrix_hs_indicator();
@@ -759,14 +863,14 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 void lpwr_presleep_hook(void) {
     turbo_stop();
     gpio_write_pin_low(LED_POWER_EN_PIN);
-    gpio_write_pin_low(A9);
+    gpio_write_pin_low(HS_LED_AUX_POWER_PIN);
     gpio_write_pin_low(HS_LED_BOOSTING_PIN);
 }
 
 void lpwr_wakeup_hook(void) {
 
     gpio_write_pin_high(LED_POWER_EN_PIN);
-    gpio_write_pin_high(A9);
+    gpio_write_pin_high(HS_LED_AUX_POWER_PIN);
     gpio_write_pin_high(HS_LED_BOOSTING_PIN);
     party_boot();
 }

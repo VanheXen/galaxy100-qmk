@@ -67,7 +67,7 @@ only works in the USB position.
 
 Westberry/Epomaker "linker" module over UART. Driven by `keyboards/epomaker/linker/wireless`
 (carlosedp fork lineage). Battery percentage is polled by the module only when not on USB;
-the firmware polls it on the cable too (every 10 s) for the VIA readout.
+the firmware polls it on the cable too (every 3 s, `WLS_INQUIRY_BAT_TIME`) for the VIA readout.
 
 ## Settings storage
 

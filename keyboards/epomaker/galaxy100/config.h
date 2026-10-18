@@ -7,6 +7,7 @@
 #define LED_POWER_EN_PIN A5    // LED ENABLE pin
 #define HS_BAT_CABLE_PIN A7    // USB insertion detection pin
 #define HS_LED_BOOSTING_PIN D2 // LED BOOSTING
+#define HS_LED_AUX_POWER_PIN A9 // second LED supply enable, switched with LED_POWER_EN_PIN
 
 #define BAT_FULL_PIN A15
 #define BAT_FULL_STATE 1
@@ -57,7 +58,7 @@
 #define EECONFIG_KB_DATA_SIZE 32
 
 /* Shown to VIA; must match "firmwareVersion" in the VIA JSON (YYYYMMDDNN) */
-#define VIA_FIRMWARE_VERSION 2026101301
+#define VIA_FIRMWARE_VERSION 2026101802
 
 /* UART for wireless module */
 #define UART_DRIVER SD3
@@ -92,9 +93,7 @@
 #define WS2812_SPI_DRIVER SPIDM2
 #define WS2812_SPI_DIVISOR 32
 
-/* Matrix size */
-#define MATRIX_ROWS 6
-#define MATRIX_COLS 19
+/* Matrix size: comes from "matrix_pins" in keyboard.json (single source) */
 
 /* rgb_record */
 #define RGBREC_CHANNEL_NUM 3
@@ -102,4 +101,3 @@
 #define EECONFIG_USER_DATA_SIZE (RGBREC_CHANNEL_NUM * MATRIX_ROWS * MATRIX_COLS * 2)
 // paint slots sit right after the kb datablock: resizing it blanks them instead of garbling
 #define EECONFIG_USER_DATA_VERSION (EECONFIG_USER_DATA_SIZE | ((uint32_t)EECONFIG_KB_DATA_SIZE << 16))
-#define RGBREC_EECONFIG_ADDR (uint8_t *)(EECONFIG_USER_DATABLOCK)

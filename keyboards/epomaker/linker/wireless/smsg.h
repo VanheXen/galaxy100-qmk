@@ -18,6 +18,7 @@ typedef enum {
 } smsg_states_t;
 
 void smsg_init(void);
+void smsg_clear(void);
 bool smsg_push(uint8_t *buf, uint32_t size);
 uint32_t smsg_peek(uint8_t *buf);
 void smsg_pop(void);

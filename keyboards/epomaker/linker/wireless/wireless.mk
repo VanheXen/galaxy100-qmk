@@ -1,4 +1,5 @@
-WIRELESS_ENABLE ?= yes
+# Galaxy100 always needs the wireless module code (power_ui.c calls replaced_hid_send)
+WIRELESS_ENABLE = yes
 WIRELESS_DIR = $(TOP_DIR)/keyboards/epomaker/linker/wireless
 
 ifeq ($(strip $(WIRELESS_ENABLE)), yes)

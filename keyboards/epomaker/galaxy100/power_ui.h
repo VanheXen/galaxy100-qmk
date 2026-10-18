@@ -13,3 +13,9 @@ void power_ui_layer_highlight(void);
 // battery cap), so indicators never outshine the effect: r/g/b are full-scale.
 uint8_t ui_val(void);
 void    ui_set_color(uint8_t led, uint8_t r, uint8_t g, uint8_t b);
+// Same but scaled only by the battery cap (fixed-color indicator flashes).
+void ui_set_color_capped(uint8_t led, uint8_t r, uint8_t g, uint8_t b);
+// True while the Fn-layer highlight owns the key colors.
+bool power_ui_layer_highlight_active(void);
+// True when the Win lock is on and applies (Windows layers only); galaxy100.c.
+bool win_lock_active(void);
