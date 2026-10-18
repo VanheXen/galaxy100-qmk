@@ -81,7 +81,7 @@ Left open (not fixed in this version, with the reason):
 - P67 no record: counted by the previous run but never itemised; a rescan found no distinct defect (treated as a duplicate of P11-P39, unconfirmed), so nothing was changed.
 - Not scanned by either run: the wear-levelling driver, platforms/chibios WB32 and the generated `info_config.h`.
 
-Count: 18 itemised open lines (17 open rows plus the P22 residual) + 22 lines P46-P67 = 40 Left-open lines. Ledger: 45 itemised problems = 28 fixed (17 earlier + 11 above) + 17 open, plus 22 never-itemised = 67 counted. Checked against docs/triage/2026101801-ledger.md.
+Count: 18 itemised open lines (17 open rows plus the P22 residual) + 22 lines P46-P67 = 40 Left-open lines. Ledger: 45 itemised problems = 28 fixed (17 earlier + 11 above) + 17 open, plus 22 never-itemised = 67 counted. Checked against docs/triage/2026101801-ledger.md. P46-P67 content was never recorded; a rescan of lowpower.c, control.c, galaxy100.c, power_ui.c, the wear-levelling driver, platforms/chibios WB32 and info_config.h found no defect for them (ledger 'Second rescan'), but that does not prove they are duplicates.
 
 UNVERIFIED on the board: nothing was flashed or tested on the keyboard. CI compiled both keymaps (Build firmware run 39130103928, commit a97e3e4), which is a build check only.
 
