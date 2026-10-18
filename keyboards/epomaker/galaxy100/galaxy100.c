@@ -50,7 +50,38 @@ void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time);
 #define keymap_is_mac_system() ((get_highest_layer(default_layer_state) == _MBL) || (get_highest_layer(default_layer_state) == _MFL))
 
 uint32_t        post_init_timer = 0x00;
-bool            charging_state  = false;
+bool            cable_present   = false; // P24: debounced USB cable pin (A7); true = cable plugged in
+bool            bat_full_stable = false; // P25: debounced charge-complete pin (A15); true = charger reports full
+
+#define PIN_DEBOUNCE_MS 50
+
+// Accept a new pin level only after it has been steady for PIN_DEBOUNCE_MS.
+// The first call adopts the raw level at once so boot does not start with a wrong state.
+static void pin_debounce(bool raw, bool *stable, bool *last, uint32_t *since, bool *primed) {
+    if (!*primed) {
+        *primed = true;
+        *stable = *last = raw;
+        *since          = timer_read32();
+        return;
+    }
+    if (raw != *last) {
+        *last  = raw;
+        *since = timer_read32();
+    } else if (raw != *stable && timer_elapsed32(*since) >= PIN_DEBOUNCE_MS) {
+        *stable = raw;
+    }
+}
+
+static void power_pins_task(void) {
+    static bool     cable_last, full_last, cable_primed, full_primed;
+    static uint32_t cable_since, full_since;
+#ifdef HS_BAT_CABLE_PIN
+    pin_debounce(gpio_read_pin(HS_BAT_CABLE_PIN), &cable_present, &cable_last, &cable_since, &cable_primed);
+#endif
+#ifdef BAT_FULL_PIN
+    pin_debounce(gpio_read_pin(BAT_FULL_PIN) == BAT_FULL_STATE, &bat_full_stable, &full_last, &full_since, &full_primed);
+#endif
+}
 static uint32_t rec_time;
 static uint32_t ee_clr_timer = 0; // Fn+Backspace held since
 #define EE_CLR_HOLD_MS 10000
@@ -204,7 +235,7 @@ void suspend_wakeup_init_kb(void) {
 // position without a cable the keyboard runs on battery and must sleep too:
 // the switch has no off position, so this is where it gets left.
 bool lpwr_is_allow_timeout_hook(void) {
-    return wireless_get_current_devs() != DEVS_USB || !charging_state;
+    return wireless_get_current_devs() != DEVS_USB || !cable_present;
 }
 
 void wireless_post_task(void) {
@@ -599,7 +630,7 @@ void housekeeping_task_kb(void) {
         soft_reset_keyboard();
     }
 
-    charging_state = gpio_read_pin(HS_BAT_CABLE_PIN);
+    power_pins_task();
 
     // asleep: our sleep, or the PC suspended USB (lights off, see transport.c)
     bool awake = USB_DRIVER.state != USB_SUSPENDED;

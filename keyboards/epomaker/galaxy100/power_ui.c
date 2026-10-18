@@ -89,7 +89,8 @@ static settings_t       set;
 extern uint8_t debounce_rt_ms, debounce_rt_mode; // debounce_rt.c
 extern uint8_t turbo_rate_hz;                     // turbo.c
 void           debounce_rt_reset(void);
-extern bool    charging_state; // galaxy100.c: cable present
+extern bool    cable_present;   // galaxy100.c: debounced cable pin (P24)
+extern bool    bat_full_stable; // galaxy100.c: debounced charge-complete pin (P25)
 void           lpwr_set_timeout_value(uint32_t timeout);
 
 typedef enum { PUI_FULL, PUI_DIM, PUI_OFF } pui_state_t;
@@ -99,11 +100,11 @@ static uint32_t    bat_show_at = 0; // Fn+Space pressed (0 = not showing)
 static uint32_t    bat_release_at = 0; // Fn+Space released (0 = still held)
 
 static bool on_cable(void) {
-    return charging_state;
+    return cable_present;
 }
 
 static bool bat_full(void) {
-    return gpio_read_pin(BAT_FULL_PIN) == BAT_FULL_STATE;
+    return bat_full_stable;
 }
 
 #define PUI_BAT_SETTLE 60000
@@ -122,7 +123,7 @@ static void bat_filter_task(void) {
     uint8_t         raw           = *md_getp_bat();
 
     if (!raw || raw > 100) return; // 0 = no reading, >100 is not a percentage: keep the last good value
-    if (!bat_shown || charging_state) {
+    if (!bat_shown || cable_present) {
         bat_shown     = raw;
         differs_since = 0;
         return;
