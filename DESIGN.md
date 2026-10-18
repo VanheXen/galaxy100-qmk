@@ -31,7 +31,7 @@ Every leftover ends the run as FIXED, OPEN with a stated reason, or closed by a 
 - Then push `fix/2026101802` and read the GitHub Actions "Build firmware" run. Each later commit needs its own CI run read before being called compiled.
 - **Baseline flash:** flash the 2026101801 CI artifact first, before any new change, and record the owner's board result per row in the new ledger `docs/triage/2026101802-ledger.md`.
 - Use the canonical words: "compiled" means CI or local build passed; **board-tested** means flashed and checked by the owner. Never write "tested", "verified" or "works on hardware" for a build only compiled.
-- Wording: use "correctness or power bug". Do not use "real bug", "serious problem" or "important issue".
+- Wording: use only the canonical term "correctness or power bug"; no synonym is used (the avoided phrases are listed under that term in CONTEXT.md).
 
 ## Deliverables
 
@@ -43,6 +43,8 @@ Every leftover ends the run as FIXED, OPEN with a stated reason, or closed by a 
 ## End state
 
 Once the fixes compile locally, pass CI on `fix/2026101802` and are board-tested: merge into `main` and create tag `v2026101802` (a `v*` tag triggers the GitHub release, so this is a publishing step taken only after those three conditions hold).
+
+Recorded deviation: `v2026101802` was merged (15d42b3) and tagged with the board-test condition unmet (no board report exists). It is compiled only, not board-tested; this deviation is recorded as unapproved in CHANGELOG.md, INTEGRATION.md and the ledger.
 
 ## Taste non-negotiables
 
