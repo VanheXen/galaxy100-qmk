@@ -72,9 +72,8 @@ jobs:
           # Releases are pre-releases until a board test is recorded (flip by hand
           # on GitHub once docs/triage ledger rows read "board-verified").
           # This gate only covers tags created AFTER commit ce8b39c. The existing
-          # v2026101802 release (tag at 15d42b3) predates it and is still a normal
-          # release (prerelease:false); it must be marked pre-release by hand:
-          #   gh release edit v2026101802 --prerelease
+          # v2026101802 release (tag at 15d42b3) predates it; it was marked
+          # pre-release by .github/workflows/mark-prerelease.yml.
           prerelease: true
           body: |
             **NOT BOARD-TESTED.** This binary is CI-compiled only; it was never flashed.

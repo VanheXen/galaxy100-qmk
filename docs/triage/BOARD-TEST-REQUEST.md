@@ -27,9 +27,8 @@ Delivery receipt: NOT received. Dry-run to a flashing target was not done; nothi
 
 ## Release status of v2026101802 (checked 2026-10-18)
 
-- GitHub release v2026101802 (tag target main, merge 15d42b3) reads `prerelease:false` via the public API; body is only the auto "Full Changelog" link. It is NOT marked NOT BOARD-TESTED.
-- The workflow's `prerelease: true` and NOT BOARD-TESTED body apply to future `v*` tags only (build.yml Release step); they do not touch this release.
-- `gh` is not authenticated and no GITHUB_TOKEN exists, so the edit was not applied. Draft body: `docs/triage/2026101802-release-body-draft.md`.
-- To apply: `gh auth login`, then `gh release edit v2026101802 --prerelease --notes-file docs/triage/2026101802-release-body-draft.md`, then re-run `gh release view v2026101802`.
+- GitHub release v2026101802 (tag target main, merge 15d42b3) now reads `prerelease:true` via the public API and its body starts "NOT BOARD-TESTED". It was marked by `.github/workflows/mark-prerelease.yml` (commit d2d2f64, Actions run 39152442361), because `gh` is not authenticated on this machine. Body source: `docs/triage/2026101802-release-body-draft.md`.
+- The build.yml Release step gives future `v*` tags the same pre-release flag and body.
+- Promote to a normal release only after the board results below are recorded as pass.
 - Merging and releasing without a board test is an UNAPPROVED deviation from the settled end state; the owner must ratify or withdraw it.
 - Git note: this folder is a git repo (origin VanheXen/galaxy100-qmk). Commits 0da7072 and 587d394 are in main's history and were pushed with 868ab74 (HEAD at check time).

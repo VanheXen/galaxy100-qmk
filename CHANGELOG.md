@@ -27,8 +27,9 @@ until the owner ratifies it or asks for the release to be withdrawn or marked pr
 **Release status.** Tag v2026101802 was published without a board test, so the release is CI-compiled only
 and the storage-layout rows P34 and P41 (Esc-hold flash path) are unverified on hardware. Delivery of the
 board-test request is unconfirmed (Telegram not paired). From now on the release workflow publishes tags
-as **pre-releases** with a "NOT BOARD-TESTED" body; the existing v2026101802 release must be marked
-pre-release by hand on GitHub (gh not authenticated here). Promote only after board results are recorded.
+as **pre-releases** with a "NOT BOARD-TESTED" body. The existing v2026101802 release was marked
+`prerelease: true` with that body on 2026-10-18 by the `mark-prerelease.yml` workflow (run 39152442361, commit d2d2f64,
+read back through the public API). Promote it only after board results are recorded.
 
 ### Fixed in this build (not board-verified)
 - Holding two wireless mode keys together no longer starts pairing on the wrong device (P15).

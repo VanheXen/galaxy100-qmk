@@ -8,6 +8,4 @@ See CHANGELOG.md and docs/triage/2026101802-ledger.md.
 
 **Full Changelog**: https://github.com/VanheXen/galaxy100-qmk/compare/v2026101301...v2026101802
 
-<!-- Apply (needs `gh auth login`):
-gh release edit v2026101802 --prerelease --notes-file docs/triage/2026101802-release-body-draft.md
--->
+<!-- Applied by .github/workflows/mark-prerelease.yml (runs on changes to this file); edit this file to change the release body. -->
