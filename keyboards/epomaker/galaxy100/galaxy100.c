@@ -747,10 +747,13 @@ void rgb_matrix_hs_indicator(void) {
             }
 
             if ((hs_rgb_indicators[i].times % 2)) {
+                // P28: both paths go through the battery cap
                 if (hs_rgb_indicators[i].index == 0xFF) {
-                    rgb_matrix_set_color_all(hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
+                    for (uint8_t led = 0; led < RGB_MATRIX_LED_COUNT; led++) {
+                        ui_set_color_capped(led, hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
+                    }
                 } else {
-                    rgb_matrix_set_color(hs_rgb_indicators[i].index, hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
+                    ui_set_color_capped(hs_rgb_indicators[i].index, hs_rgb_indicators[i].rgb.r, hs_rgb_indicators[i].rgb.g, hs_rgb_indicators[i].rgb.b);
                 }
             } else {
                 if (hs_rgb_indicators[i].index == 0xFF) {
@@ -811,7 +814,7 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
         rgb_matrix_set_color(HS_RGB_INDEX_NUM_LOCK, RGB_BLACK);
     if (!keymap_is_mac_system() && keymap_config.no_gui)
         ui_set_color(HS_RGB_INDEX_WIN_LOCK, 0xFF, 0xFF, 0xFF);
-    else
+    else if (!power_ui_layer_highlight_active()) // P29: on a Fn layer the highlight already colored this key
         rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, RGB_BLACK);
 
     rgb_matrix_hs_indicator();

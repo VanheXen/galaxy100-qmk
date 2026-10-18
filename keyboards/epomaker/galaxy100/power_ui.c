@@ -436,6 +436,13 @@ void ui_set_color(uint8_t led, uint8_t r, uint8_t g, uint8_t b) {
     rgb_matrix_set_color(led, r * v / 255, g * v / 255, b * v / 255);
 }
 
+// P28: fixed-color indicators (the pool in galaxy100.c) honour only the battery
+// cap: they keep their own brightness otherwise, so a dimmed effect cannot hide them.
+void ui_set_color_capped(uint8_t led, uint8_t r, uint8_t g, uint8_t b) {
+    uint16_t cap = bat_cap_val();
+    rgb_matrix_set_color(led, r * cap / 255, g * cap / 255, b * cap / 255);
+}
+
 static void set_key(uint8_t row, uint8_t col, uint8_t r, uint8_t g, uint8_t b) {
     uint8_t led = g_led_config.matrix_co[row][col];
     if (led != NO_LED) rgb_matrix_set_color(led, r, g, b);
@@ -660,6 +667,12 @@ bool process_detected_host_os_kb(os_variant_t os) {
 // While a Fn layer is held, keys that do nothing different there go dark, so the
 // active ones stand out (optionally shown in white). Runs before the other
 // indicators so Caps/status lights still draw on top.
+
+// P29: true while the Fn-layer highlight decides each key's color (so the
+// Win-lock lamp must not force its key black over it).
+bool power_ui_layer_highlight_active(void) {
+    return get_highest_layer(layer_state) > get_highest_layer(default_layer_state) && set.layer_hl != HL_OFF;
+}
 
 void power_ui_layer_highlight(void) {
     uint8_t layer = get_highest_layer(layer_state);
