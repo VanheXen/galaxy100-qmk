@@ -17,10 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clone mainline QMK
+      - name: Check VIA firmware version strings match (P07)
         run: |
-          git clone --depth 1 https://github.com/qmk/qmk_firmware /qmk
-          cd /qmk && git submodule update --init --recursive --depth 1
+          h=$(sed -n 's/^#define VIA_FIRMWARE_VERSION[[:space:]]\+\([0-9]\+\).*/\1/p' keyboards/epomaker/galaxy100/config.h)
+          j=$(sed -n 's/.*"firmwareVersion"[[:space:]]*:[[:space:]]*\([0-9]\+\).*/\1/p' via/galaxy100_via.json)
+          echo "config.h=$h via.json=$j"
+          [ -n "$h" ] && [ "$h" = "$j" ] || { echo "::error::VIA firmware version mismatch"; exit 1; }
+
+      - name: Clone mainline QMK (pinned, P45)
+        env:
+          # Known-good commit: the one both keymaps were compiled against locally.
+          QMK_REF: 7a1bbf37c5c07da4ea0a162bb139083a46ef40a1
+        run: |
+          git init /qmk
+          cd /qmk
+          git remote add origin https://github.com/qmk/qmk_firmware
+          git fetch --depth 1 origin "$QMK_REF"
+          git checkout --detach FETCH_HEAD
+          git submodule update --init --recursive --depth 1
           qmk config user.qmk_home=/qmk
 
       - name: Link board files
@@ -34,6 +48,12 @@ jobs:
           qmk compile -kb epomaker/galaxy100 -km via
           qmk compile -kb epomaker/galaxy100 -km default
           cp /qmk/epomaker_galaxy100_via.bin .   # default keymap: compile check only
+
+      - name: Check via.o redirect was applied (P10)
+        run: |
+          o=/qmk/.build/obj_epomaker_galaxy100_via/quantum/via.o
+          [ -f "$o" ] || { echo "::error::$o missing"; exit 1; }
+          grep -aq replaced_hid_send "$o" || { echo "::error::wireless.mk via.o raw_hid_send redirect not applied"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
