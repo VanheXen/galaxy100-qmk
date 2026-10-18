@@ -1,0 +1,29 @@
+name: Mark release pre-release
+
+# v2026101802 was published as a normal release before any board test (Requirement 10).
+# This marks it pre-release with the NOT BOARD-TESTED body, using the repo's own
+# Actions token. Idempotent. Runs when this file or the body draft changes on main,
+# or by hand. Remove the tag from the list once a board test is recorded.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/mark-prerelease.yml"
+      - "docs/triage/2026101802-release-body-draft.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mark v2026101802 as pre-release (NOT BOARD-TESTED)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit v2026101802 --repo "$GITHUB_REPOSITORY" --prerelease --notes-file docs/triage/2026101802-release-body-draft.md
+          gh release view v2026101802 --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq '.isPrerelease' | grep -qx true

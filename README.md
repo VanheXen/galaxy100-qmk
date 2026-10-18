@@ -5,6 +5,10 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
 
 > Not for the ES32 revision (USB `36B0:xxxx`), which uses a different MCU.
 
+> **Board test pending (v2026101802):** the build was compiled by CI only and never flashed.
+> Telegram notification is not paired, so read [docs/triage/BOARD-TEST-REQUEST.md](docs/triage/BOARD-TEST-REQUEST.md)
+> and report pass/fail per ledger row.
+
 ## What's different from stock
 
 - **Fixed wake-up delay**: no forced 1-minute sleep while typing, no 1 s USB resume delay,

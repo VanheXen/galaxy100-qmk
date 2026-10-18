@@ -12,6 +12,7 @@ Target board: Epomaker Galaxy100 (VID_342D PID_E489), firmware v2026101802 (tag 
 |---|---|---|---|
 | earlier runs | BT-2026101802-01 | Galaxy100 | delivered=false, queued=true, reason=telegram-not-paired |
 | this task | BT-2026101802-01 | Galaxy100 | delivered=false, queued=true, reason=telegram-not-paired |
+| remedy task (2026-10-18) | BT-2026101802-01 | Galaxy100 | delivered=false, queued=true, reason=telegram-not-paired; fallback pointer added to README.md |
 
 Failing hop: 2 (channel not paired). Not fixable from the repo; the owner must pair Telegram.
 This file is the fallback channel: it lives in the repo, so the request is visible without Telegram.

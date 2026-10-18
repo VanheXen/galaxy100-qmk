@@ -13,6 +13,8 @@ The board (USB VID 342D, PID E489) is attached and running normal firmware. Ever
 - Flash: `wb32-dfu-updater_cli` (QMK MSYS) found, and `flash.bat` (backup of the current image, then flash) written next to the .bin. Run result: "No DFU capable USB device available". The board is not in the bootloader, and entering it needs Fn+Right Shift+Esc (or Esc held while plugging in), which an AI agent cannot press.
 - Result: NOT FLASHED. All 11 rows stay "no report".
 
+Re-check (later, same day, remedy retry): the board was still enumerated only as VID_342D&PID_E489 (normal mode, no DFU device), and the local .bin sha256 was re-computed and matches the value above. Still NOT FLASHED.
+
 To finish: put the board in the bootloader, run `flash.bat` from that folder, then fill the Outcome cells below.
 
 ## What to flash
