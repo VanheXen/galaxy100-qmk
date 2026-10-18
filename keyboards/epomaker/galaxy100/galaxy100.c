@@ -275,15 +275,32 @@ bool process_record_wls(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {                                                                                       \
                 if (wireless_get_current_devs() != wls_dev)                                                                    \
                     wireless_devs_change(wireless_get_current_devs(), wls_dev, false);                                         \
-                if (wls_process_long_press_token == INVALID_DEFERRED_TOKEN) {                                                  \
-                    keycode_shadow               = keycode; /* other keys meanwhile must not change it */                    \
+                if (wls_held_mask != wls_key_bit) {                                                                            \
+                    /* P15: a second mode key is down: a chord never starts pairing, drop the pending one */                   \
+                    if (wls_process_long_press_token != INVALID_DEFERRED_TOKEN) {                                              \
+                        cancel_deferred_exec(wls_process_long_press_token);                                                    \
+                        wls_process_long_press_token = INVALID_DEFERRED_TOKEN;                                                 \
+                    }                                                                                                          \
+                } else if (wls_process_long_press_token == INVALID_DEFERRED_TOKEN) {                                           \
+                    keycode_shadow               = keycode;                                                                    \
                     wls_process_long_press_token = defer_exec(WLS_KEYCODE_PAIR_TIME, wls_process_long_press, &keycode_shadow); \
                 }                                                                                                              \
-            } else {                                                                                                           \
+            } else if (wls_process_long_press_token != INVALID_DEFERRED_TOKEN && keycode_shadow == keycode) {                  \
                 cancel_deferred_exec(wls_process_long_press_token);                                                            \
                 wls_process_long_press_token = INVALID_DEFERRED_TOKEN;                                                         \
             }                                                                                                                  \
         } while (false)
+
+    // P15: which mode keys are held, tracked on every event (also when the mode check below fails)
+    static uint8_t wls_held_mask = 0;
+    uint8_t        wls_key_bit   = (keycode == KC_BT1) ? 1 : (keycode == KC_BT2) ? 2 : (keycode == KC_BT3) ? 4 : (keycode == KC_2G4) ? 8 : 0;
+    if (wls_key_bit) {
+        if (record->event.pressed) {
+            wls_held_mask |= wls_key_bit;
+        } else {
+            wls_held_mask &= ~wls_key_bit;
+        }
+    }
 
     switch (keycode) {
         case KC_BT1: {

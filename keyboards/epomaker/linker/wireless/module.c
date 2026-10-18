@@ -76,6 +76,20 @@ static md_info_t md_info = {
     .state     = MD_STATE_NONE,
 };
 
+// P17: the ACK frame carries no packet id. Count how often the current packet went out; when it was
+// resent, the module may still answer the first copy too, so swallow that many surplus ACKs (for a
+// short window) instead of letting them complete the NEXT packet.
+#ifndef MD_ACK_STALE_WINDOW
+#    define MD_ACK_STALE_WINDOW 100
+#endif
+static uint8_t  md_tx_unacked  = 0;
+static uint8_t  md_ack_stale   = 0;
+static uint32_t md_ack_stale_t = 0;
+
+// P16: DEVCTRL state frames (pairing/connected/...) received before the module ACKs the device-switch
+// command still describe the OLD link: ignore them until that first ACK.
+static bool md_link_gate = false;
+
 static void md_send_ack(void) {
 
     uint8_t sdata[0x03] = {0x61, 0x0D, 0x0A};
@@ -160,8 +174,20 @@ static void md_receive_msg_task(void) {
             case 2: {
                 // ACK
                 if ((md_rev_payload[0] == 0x61) && (md_rev_payload[1] == 0x0D) && (data == 0x0A)) {
-                    if (smsg_get_state() == smsg_state_busy) {
-                        smsg_set_state(smsg_state_replied);
+                    smsg_states_t st = smsg_get_state();
+                    if (st == smsg_state_busy || st == smsg_state_retry) {
+                        if (md_ack_stale && sync_timer_elapsed32(md_ack_stale_t) <= (MD_ACK_STALE_WINDOW)) {
+                            md_ack_stale--; // late ACK of an earlier copy of the packet that was already completed
+                        } else {
+                            md_ack_stale = 0;
+                            if (md_tx_unacked > 1) { // resent: more ACKs for this packet may follow
+                                md_ack_stale   = md_tx_unacked - 1;
+                                md_ack_stale_t = sync_timer_read32();
+                            }
+                            md_tx_unacked = 0;
+                            md_link_gate  = false; // first ACK after a device switch: the link is the new one
+                            smsg_set_state(smsg_state_replied);
+                        }
                     }
                     data_count = 0;
                     return;
@@ -213,6 +239,7 @@ static void md_receive_msg_task(void) {
                     md_info.indicator = md_rev_payload[1];
                 } break;
                 case MD_REV_CMD_DEVCTRL: {
+                    if (md_link_gate) break; // P16: state of the old link
                     switch (md_rev_payload[1]) {
                         case MD_REV_CMD_DEVCTRL_PAIRING: {
                             md_info.state = MD_STATE_PAIRING;
@@ -275,6 +302,9 @@ void md_clear_queue(void) {
     smsg_clear();
     smsg_retry = 0;
     memset(pend_len, 0, sizeof(pend_len));
+    md_tx_unacked = 0;
+    md_ack_stale  = 0;
+    md_link_gate  = true; // P16
 }
 
 static void md_send_pkt_task(void) {
@@ -290,7 +320,9 @@ static void md_send_pkt_task(void) {
         } break;
         case smsg_state_retry: {
             if (++smsg_retry > MD_SEND_PKT_RETRY) { // no ACK after all retries: drop it
-                smsg_retry = 0;
+                smsg_retry    = 0;
+                md_tx_unacked = 0;
+                md_link_gate  = false; // module never answered: do not mute its state frames forever
                 smsg_pop();
             }
             smsg_set_state(smsg_state_free);
@@ -304,6 +336,7 @@ static void md_send_pkt_task(void) {
             uint32_t size = smsg_peek(md_pkt_payload);
             if (size) {
                 md_send_pkt(md_pkt_payload, size);
+                if (md_tx_unacked < 0xFF) md_tx_unacked++;
                 smsg_timer = sync_timer_read32();
                 smsg_set_state(smsg_state_busy);
             }
