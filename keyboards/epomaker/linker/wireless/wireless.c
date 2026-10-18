@@ -9,6 +9,14 @@
 #    define WLS_INQUIRY_BAT_TIME 3000
 #endif
 
+// Send-path invariants kept from 2026101301 (checked again in 2026101801, see the triage ledger):
+//  1. Resend cap: an unacknowledged packet is resent up to MD_SEND_PKT_RETRY (40) times, then dropped
+//     (module.c, md_send_pkt_task). Do not lower it or add a second limit here.
+//  2. Queued-only: every report goes through md_send_*() into the queue (module.c). Never write to the
+//     UART from here and never pump wireless_task() from inside a send.
+//  3. Releases survive: key/consumer/system/mouse states are held in module.c's pend_buf when the queue is
+//     full and queued later, so a release is never lost. wireless_devs_change() clears that backlog first
+//     (P12) and only then queues the releases for the old host (P13).
 static uint8_t wls_devs = DEVS_USB;
 
 void last_matrix_activity_trigger(void);
