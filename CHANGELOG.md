@@ -18,6 +18,12 @@ commit 3e7c970 (run 39147575461) was read afterwards: success. The docs commit 9
 merge to main 15d42b3 (run 39147815671) and tag v2026101802 (run 39147815456) also read success. **Nothing was flashed or board-tested: the 15 firmware rows fixed below
 (plus P19, left open) are NOT board-verified** (no board report exists).
 
+**Deviation from the settled end state.** The owner's end-state decision (DESIGN.md "End state", brief item 9)
+made a board test a precondition for merging into `main` and tagging. Merge 15d42b3 and tag v2026101802 were
+done before any board test, so this is a deviation. **No owner approval of the deviation is recorded anywhere**
+(the run's just-do-it autonomy setting is not an approval of it). It stays a recorded, unapproved deviation
+until the owner ratifies it or asks for the release to be withdrawn or marked pre-release.
+
 **Release status.** Tag v2026101802 was published without a board test, so the release is CI-compiled only
 and the storage-layout rows P34 and P41 (Esc-hold flash path) are unverified on hardware. Delivery of the
 board-test request is unconfirmed (Telegram not paired). From now on the release workflow publishes tags
