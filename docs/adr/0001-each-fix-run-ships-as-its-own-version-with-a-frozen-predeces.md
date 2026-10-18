@@ -1,0 +1,3 @@
+# ADR 0001: Each fix run ships as its own version with a frozen predecessor ledger
+
+Version 2026101801 and its ledger stay untouched; all new work goes into 2026101802 on branch fix/2026101802 with its own ledger and changelog entry, even though it means the never-board-tested 2026101801 is preserved as recorded. Chosen so that baseline board-test results and new fixes are attri…

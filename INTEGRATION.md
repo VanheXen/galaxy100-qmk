@@ -66,6 +66,16 @@ set MSYSTEM=MINGW64&& bash.exe -l -c "export PATH=$PATH:/c/Users/Davide/Python/P
 - **Rule:** every push to `fix/2026101802` is preceded by both compiles passing locally (exit 0, no new warnings).
   Paste any failing output verbatim into the task result. CI on the pushed commit must also be green before merge or tag.
 
+## Status for 2026101802 (checked 2026-10-18)
+
+- **Version:** `2026101802` in `config.h` (`VIA_FIRMWARE_VERSION`) and `via/galaxy100_via.json` (`firmwareVersion`). Branch `fix/2026101802`.
+- **Local compile:** both keymaps built with the commands in "Local toolchain" (`qmk compile -kb epomaker/galaxy100 -km via` and `-km default`); `via` exit 0, `default` exit 0, no warning/error lines, on the pushed code.
+- **CI:** run **39147350401** ("Build firmware", push) at commit **08e7f2c176d583d97ae2f2d2aa19120e865cc476**: success; build job green, Release skipped (no tag). The P07, P10, P45 workflow steps passed in that run. Artifact `galaxy100-firmware` (54114 B).
+- **Not read:** the docs-only ledger commit `3e7c970` (pushed after 08e7f2c) triggered a further CI run that was not read. The recorded success covers 08e7f2c only.
+- **Board test: NOT DONE / unverified.** No board result exists for any row; nothing was flashed. The owner notification was queued (Telegram not paired) and may not have been delivered. All FIXED firmware rows are compile- and CI-verified only. P19 stays OPEN; P43 and P44 stay OPEN (owner actions).
+- **Tag/release:** none recorded here; do not treat `v2026101802` as published until the merge and tag are confirmed.
+- `fix/2026101801` and the 2026101801 records (CI run 39130103928, commit 3f9c298) are unchanged.
+
 ## Ledger
 
 `docs/triage/2026101802-ledger.md` is the single list of work for this run (the 2026101801 ledger is history). Row ids: `Pnn` = problem

@@ -4,6 +4,49 @@ Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`). Entr
 **storage layout changed** need an Esc-hold flash (settings reset) when coming from an older
 build; the others keep keymap, macros and settings.
 
+## 2026101802 — storage layout changed
+
+Leftovers of 2026101801. Ledger: [docs/triage/2026101802-ledger.md](docs/triage/2026101802-ledger.md).
+Storage layout changed (additive, P34 and P41): a settings version byte and the hue preset byte were
+added. Coming from 2026101801 the settings are migrated and kept (flash with Fn+Right Shift+Esc,
+which keeps settings); coming from an older build, or if anything looks wrong, do an Esc-hold flash
+(full settings reset).
+
+**Verification status.** Compiled locally (`via` and `default`, exit 0, no warnings) and by CI run
+39147350401 at commit 08e7f2c (branch `fix/2026101802`, success). The CI run for the later docs-only
+commit 3e7c970 was not read. **Nothing was flashed or board-tested: the 15 firmware rows fixed below
+(plus P19, left open) are NOT board-verified** (no board report exists). No tag or release at the time
+of this entry.
+
+### Fixed in this build (not board-verified)
+- Holding two wireless mode keys together no longer starts pairing on the wrong device (P15).
+- Switching wireless device no longer shows a stale connected state from the previous link (P16;
+  guard by ordering, no UART trace available).
+- Late acknowledgements from the wireless module can no longer complete the wrong packet (P17;
+  ACK latency not measured).
+- Battery text in VIA is now bounds-guarded (P22).
+- Plugging in or pulling out the USB cable no longer flickers the charging light: cable pin debounced 50 ms (P24).
+- The green "battery full" flash no longer fires falsely when you plug the cable in; it may appear up to 50 ms later (P25).
+- Key indicator flashes now respect the battery brightness cap (P28).
+- The Fn-layer highlight can now light the Win-lock key (P29).
+- Fn+Space with no battery reading blinks key 1 white instead of showing nothing (P31).
+- Settings now carry a version, and one invalid value resets only itself instead of every setting (P34, storage layout changed).
+- Custom Paint: Fn release handling made explicit, no change in behaviour (P39).
+- The hue preset key remembers its position after a reboot (P41, storage layout changed).
+- Turbo now stops after 5 minutes without a key press, so the keyboard can sleep (P68; the 5 minutes is a choice, not measured).
+- With the PC asleep, all LED power supplies are now cut, not just one (P69).
+- The Locks status light no longer shows the Win lock on the Mac layer (P70).
+- CI: VIA version match check between config.h and the VIA JSON (P07), via.o redirect check (P10), QMK pinned to commit 7a1bbf37 (P45). These ran once in CI run 39147350401 and passed.
+
+### Closed by rescan
+- P46 to P67 (22 never-itemised rows): rescan of the wireless and board sources against the correctness or power bug definition found no distinct defect behind them; it found P68 to P70 instead (see ledger rescan record).
+
+### Left open
+- P19 wireless mouse wheel/tilt axis order is unverified: module report layout unknown, needs board evidence; no behaviour change made.
+- P43 qmk_firmware junctions untracked: owner action outside the repo, pending.
+- P44 stale `ledtest` and `probe` build outputs in qmk_firmware: owner action outside the repo, pending.
+- Board test of the 15 fixed firmware rows above and of P19: requested, no report yet.
+
 ## 2026101801
 
 Triage of the problems left by the previous bug scan run. Ledger: [docs/triage/2026101801-ledger.md](docs/triage/2026101801-ledger.md).
