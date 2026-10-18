@@ -10,7 +10,7 @@ Triage of the problems left by the previous bug scan run. Ledger: [docs/triage/2
 No fix adds a persisted setting, so settings, keymap and macros are kept (no Esc-hold flash needed).
 Not compiled locally (CI only) and not tested on the board.
 
-Fixed:
+### Fixed
 - The volume knob now works in the `default` build too (P04).
 - Typing while the wireless link is down no longer floods the module with device-select
   commands, so the queue stays free and the keyboard can go to sleep (P11).
@@ -31,7 +31,9 @@ Fixed:
   wipes the paint buffer (P33).
 - Turbo can now take over a key that is also in a SOCD pair when SOCD is on (P38).
 
-Left open (not fixed in this version, with the reason):
+### Left open
+
+Not fixed in this version, with the reason:
 - P15 two mode keys held together can start pairing on the wrong device: rare chord, a safe fix
   means redesigning the shared long-press token.
 - P16 stale link-state frame after a switch: unconfirmed, needs a UART trace (the P12 flush

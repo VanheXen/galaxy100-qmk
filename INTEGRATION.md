@@ -1,8 +1,25 @@
 # Integration guide for run 2026101801
 
 How the fix tasks of this run plug into the repo. Version: `2026101801`
-(`VIA_FIRMWARE_VERSION` in `keyboards/epomaker/galaxy100/config.h`, already bumped; the VIA JSON
-has no hard-coded version, it uses `{id_firmware_version}`).
+(`VIA_FIRMWARE_VERSION` in `keyboards/epomaker/galaxy100/config.h`, already bumped). The VIA JSON
+`via/galaxy100_via.json` also carries a hard-coded `firmwareVersion` (now `2026101801`); both must
+be bumped together, and its `showIf` gates use `{id_firmware_version}`.
+
+## Chosen build path
+
+**GitHub Actions on branch `fix/2026101801`, not a local compile.** No local toolchain exists on
+this machine, so `.github/workflows/build.yml` (which also triggers on `fix/**` pushes) compiles both
+keymaps. CI run 39130103928 on `fix/2026101801` succeeded for `via` and `default`
+(commit 3f9c298). Later commits (including comment-only edits) need their own CI run read before
+being called compiled. No tag and no release until the board has been tested.
+
+## Storage-layout flag rule
+
+A change that adds a persisted setting or alters the EEPROM layout must be written up as
+"storage layout changed" in its ledger note, and the CHANGELOG heading becomes
+`## 2026101801 — storage layout changed` (users coming from an older build then need an Esc-hold
+flash / full settings reset; Fn+Right Shift+Esc bootloader keeps settings via `SKIP_VERSION = yes`).
+For 2026101801 no fix changes the layout, so the heading stays `## 2026101801`.
 
 ## Build path
 
@@ -25,7 +42,7 @@ Both keymaps must compile. CI runs exactly these two commands, then publishes `e
   to this repo, so the checkout side is ready.
 - The `qmk` CLI, `arm-none-eabi-gcc` and `make` are **not installed** (`qmk --version` and
   `where` fail). A local compile was **not run**; nothing is compile-verified yet.
-- Therefore verify by pushing the work to a branch and reading the GitHub Actions "Build firmware"
+- Therefore (see "Chosen build path") verify by pushing the work to a branch and reading the GitHub Actions "Build firmware"
   result (runs on push to `main`, pull requests and manual dispatch). Nothing has been flashed or tested on the board.
 
 ## Ledger
