@@ -13,7 +13,7 @@ Previous version `2026101801` (ledger `docs/triage/2026101801-ledger.md`) stays 
 (a local toolchain is now installed: see "Local toolchain" below). `.github/workflows/build.yml` (which also triggers on `fix/**` pushes) compiles both
 keymaps. CI run 39130103928 on `fix/2026101801` succeeded for `via` and `default`
 (commit 3f9c298). Later commits (including comment-only edits) need their own CI run read before
-being called compiled. No tag and no release until the board has been tested.
+being called compiled. For 2026101801 no tag and no release were made (it was never board-tested); 2026101802 was tagged and released without a board test (see "Status for 2026101802").
 
 ## Storage-layout flag rule
 
@@ -73,7 +73,7 @@ set MSYSTEM=MINGW64&& bash.exe -l -c "export PATH=$PATH:/c/Users/Davide/Python/P
 - **CI:** run **39147350401** ("Build firmware", push) at commit **08e7f2c176d583d97ae2f2d2aa19120e865cc476**: success; build job green, Release skipped (no tag). The P07, P10, P45 workflow steps passed in that run. Artifact `galaxy100-firmware` (54114 B).
 - **Read (2026-10-18, public GitHub API):** the docs-only ledger commit `3e7c970` ran as CI run 39147575461: success. Later runs also success: 966171b (39147805837), main 15d42b3 (39147815671), tag v2026101802 (39147815456). These are compile checks only; no board test exists.
 - **Board test: NOT DONE / unverified.** No board result exists for any row; nothing was flashed. The owner notification was queued (Telegram not paired) and may not have been delivered. All FIXED firmware rows are compile- and CI-verified only. P19 stays OPEN; P43 and P44 stay OPEN (owner actions).
-- **Tag/release:** none recorded here; do not treat `v2026101802` as published until the merge and tag are confirmed.
+- **Tag/release (verified 2026-10-18 via `git ls-remote` and the public GitHub API):** `fix/2026101802` was merged into `main` with merge commit `15d42b3`; annotated tag `v2026101802` exists on origin and points at `15d42b3`. GitHub release `v2026101802` is published (not draft, not prerelease) by the tag workflow, with assets `epomaker_galaxy100_via.bin` (72452 B) and `galaxy100_via.json`. `main` is now at `83ffdc2` (docs after the merge). It was published **without any board test**: CI-compiled only, never flashed.
 - `fix/2026101801` and the 2026101801 records (CI run 39130103928, commit 3f9c298) are unchanged.
 
 ## Ledger

@@ -69,4 +69,13 @@ jobs:
           files: |
             epomaker_galaxy100_via.bin
             via/galaxy100_via.json
+          # Releases are pre-releases until a board test is recorded (flip by hand
+          # on GitHub once docs/triage ledger rows read "board-verified").
+          prerelease: true
+          body: |
+            **NOT BOARD-TESTED.** This binary is CI-compiled only; it was never flashed.
+            Rows P34/P41 change the storage layout (additive): coming from an older build,
+            do an Esc-hold flash / settings reset. No board results are recorded yet, and
+            delivery of the board-test request to the owner is unconfirmed (Telegram not paired).
+            See CHANGELOG.md and docs/triage/2026101802-ledger.md.
           generate_release_notes: true

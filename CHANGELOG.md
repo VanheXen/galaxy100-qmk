@@ -16,8 +16,13 @@ which keeps settings); coming from an older build, or if anything looks wrong, d
 39147350401 at commit 08e7f2c (branch `fix/2026101802`, success). The CI run for the later docs-only
 commit 3e7c970 (run 39147575461) was read afterwards: success. The docs commit 966171b (run 39147805837), the
 merge to main 15d42b3 (run 39147815671) and tag v2026101802 (run 39147815456) also read success. **Nothing was flashed or board-tested: the 15 firmware rows fixed below
-(plus P19, left open) are NOT board-verified** (no board report exists). No tag or release at the time
-of this entry.
+(plus P19, left open) are NOT board-verified** (no board report exists).
+
+**Release status.** Tag v2026101802 was published without a board test, so the release is CI-compiled only
+and the storage-layout rows P34 and P41 (Esc-hold flash path) are unverified on hardware. Delivery of the
+board-test request is unconfirmed (Telegram not paired). From now on the release workflow publishes tags
+as **pre-releases** with a "NOT BOARD-TESTED" body; the existing v2026101802 release must be marked
+pre-release by hand on GitHub (gh not authenticated here). Promote only after board results are recorded.
 
 ### Fixed in this build (not board-verified)
 - Holding two wireless mode keys together no longer starts pairing on the wrong device (P15).
