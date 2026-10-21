@@ -44,7 +44,7 @@ Every leftover ends the run as FIXED, OPEN with a stated reason, or closed by a 
 
 Once the fixes compile locally, pass CI on `fix/2026101802` and are board-tested: merge into `main` and create tag `v2026101802` (a `v*` tag triggers the GitHub release, so this is a publishing step taken only after those three conditions hold).
 
-Recorded deviation: `v2026101802` was merged (15d42b3) and tagged with the board-test condition unmet (no board report exists). It is compiled only, not board-tested; this deviation is recorded as unapproved in CHANGELOG.md, INTEGRATION.md and the ledger.
+Recorded deviation: `v2026101802` was merged (15d42b3) and tagged with the board-test condition unmet (no board report exists). It was compiled only at tag time; this deviation is recorded as unapproved in CHANGELOG.md, INTEGRATION.md and the ledger. A board test of the storage-layout rows passed afterwards (2026-10-21) and the release was promoted.
 
 ## Taste non-negotiables
 

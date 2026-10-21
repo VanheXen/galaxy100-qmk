@@ -24,7 +24,13 @@ done before any board test, so this is a deviation. **No owner approval of the d
 (the run's just-do-it autonomy setting is not an approval of it). It stays a recorded, unapproved deviation
 until the owner ratifies it or asks for the release to be withdrawn or marked pre-release.
 
-**Release status.** Tag v2026101802 was published without a board test, so the release is CI-compiled only
+**Board test (2026-10-21).** The owner flashed the v2026101802 release binary (sha256 963ca6c3...ed7b) over
+2026101301 with an Esc-hold flash; the board read back VIA firmware version 2026101802. Pass: VIA settings
+kept across a power cycle (P34), hue preset position kept across a power cycle (P41), all VIA custom menus
+load. Not tested: the Fn+Right Shift+Esc migration from 2026101801 (never flashed on this board) and the
+other fixed rows one by one. The release was promoted from pre-release to a normal release after this test.
+
+**Release status (before the board test).** Tag v2026101802 was published without a board test, so the release is CI-compiled only
 and the storage-layout rows P34 and P41 (Esc-hold flash path) are unverified on hardware. Delivery of the
 board-test request is unconfirmed (Telegram not paired). From now on the release workflow publishes tags
 as **pre-releases** with a "NOT BOARD-TESTED" body. The existing v2026101802 release was marked

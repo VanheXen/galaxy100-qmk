@@ -5,9 +5,9 @@ mainline [QMK](https://github.com/qmk/qmk_firmware) with full wired, 2.4 GHz and
 
 > Not for the ES32 revision (USB `36B0:xxxx`), which uses a different MCU.
 
-> **Board test pending (v2026101802):** the build was compiled by CI only and never flashed.
-> Telegram notification is not paired, so read [docs/triage/BOARD-TEST-REQUEST.md](docs/triage/BOARD-TEST-REQUEST.md)
-> and report pass/fail per ledger row.
+> **v2026101802 board-tested 2026-10-21** for the storage-layout rows (P34, P41) and the VIA menus;
+> the other fixed rows run on the board but were not tested one by one. See
+> [docs/triage/2026101802-ledger.md](docs/triage/2026101802-ledger.md).
 
 ## What's different from stock
 

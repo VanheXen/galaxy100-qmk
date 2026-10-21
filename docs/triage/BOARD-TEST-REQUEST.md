@@ -23,7 +23,9 @@ This file is the fallback channel: it lives in the repo, so the request is visib
 3. P34/P41 changed the storage layout: coming from an older build, do an Esc-hold flash / settings reset.
 4. Report pass/fail per FIXED firmware row. Receipt = your reply; until then every row reads "no report".
 
-Delivery receipt: NOT received. Dry-run to a flashing target was not done; nothing was flashed.
+**Result (2026-10-21):** owner flashed v2026101802 (Esc-hold, from 2026101301) and reported P34, P41 and the VIA menus as pass. Recorded in the ledger. Request closed.
+
+Delivery receipt (2026-10-18): NOT received. Dry-run to a flashing target was not done; nothing was flashed.
 
 ## Release status of v2026101802 (checked 2026-10-18)
 
