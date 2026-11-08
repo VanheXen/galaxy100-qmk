@@ -4,6 +4,12 @@ Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`). Entr
 **storage layout changed** need an Esc-hold flash (settings reset) when coming from an older
 build; the others keep keymap, macros and settings.
 
+## Unreleased
+
+- Wireless: the keyboard now tells the module its charge state (charging / full / not charging)
+  every second, so the battery percentage reported over BT/2.4G no longer sticks at 100. The
+  module's battery reading starts at 0 ("no reading yet") instead of 100. Not board-tested.
+
 ## 2026101802 — storage layout changed
 
 Leftovers of 2026101801. Ledger: [docs/triage/2026101802-ledger.md](docs/triage/2026101802-ledger.md).

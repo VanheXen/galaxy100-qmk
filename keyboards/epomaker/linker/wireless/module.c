@@ -70,7 +70,7 @@ static uint8_t md_rev_payload[MD_SEND_PKT_PAYLOAD_MAX] = {0};
 static uint8_t md_raw_payload[MD_RAW_SIZE]             = {0};
 
 static md_info_t md_info = {
-    .bat       = 100,
+    .bat       = 0, // 0 = no reading yet: a module that never answers must not look full
     .indicator = 0,
     .version   = 0,
     .state     = MD_STATE_NONE,

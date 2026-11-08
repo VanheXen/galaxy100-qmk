@@ -85,6 +85,15 @@ static void power_pins_task(void) {
 #ifdef BAT_FULL_PIN
     pin_debounce(gpio_read_pin(BAT_FULL_PIN) == BAT_FULL_STATE, &bat_full_stable, &full_last, &full_since, &full_primed);
 #endif
+#ifdef WIRELESS_ENABLE
+    // Tell the module the charge state every second, as every Epomaker board does:
+    // without it the module's battery percentage never moves off 100.
+    static uint32_t charge_timer = 0;
+    if (lpwr_get_state() == LPWR_NORMAL && timer_elapsed32(charge_timer) >= 1000) {
+        charge_timer = timer_read32();
+        md_send_devctrl(!cable_present ? MD_SND_CMD_DEVCTRL_CHARGING_STOP : bat_full_stable ? MD_SND_CMD_DEVCTRL_CHARGING_DONE : MD_SND_CMD_DEVCTRL_CHARGING);
+    }
+#endif
 }
 static uint32_t rec_time;
 static uint32_t ee_clr_timer = 0; // Fn+Backspace held since
