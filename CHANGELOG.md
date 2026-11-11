@@ -4,11 +4,14 @@ Firmware versions are `YYYYMMDDNN` (shown to VIA as `id_firmware_version`). Entr
 **storage layout changed** need an Esc-hold flash (settings reset) when coming from an older
 build; the others keep keymap, macros and settings.
 
-## Unreleased
+## 2026111201
+
+Battery reporting fixes. No storage layout change: Fn+Right Shift+Esc keeps keymap, macros
+and settings.
 
 - Wireless: the keyboard now tells the module its charge state (charging / full / not charging)
   every second, so the battery percentage reported over BT/2.4G no longer sticks at 100. The
-  module's battery reading starts at 0 ("no reading yet") instead of 100. Not board-tested.
+  module's battery reading starts at 0 ("no reading yet") instead of 100. Board-tested.
 - Battery % on battery (Fn+Space, VIA label, status light): the shown value could stick at 100
   for days, because the 60 s settle timer restarted on every reading equal to the shown one
   (lights dimming at idle lift the reading back to 100). Now each 60 s of readings is averaged
