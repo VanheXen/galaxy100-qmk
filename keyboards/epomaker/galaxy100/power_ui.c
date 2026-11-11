@@ -117,26 +117,28 @@ static uint8_t bat_pct(void) {
     return bat_shown;
 }
 
-// On the cable follow the module directly (charging). On battery, a lower or
-// higher reading must persist for 60 s before it is shown, which hides the
-// dips caused by LED load and the jumps when the lights turn off.
+// On the cable follow the module directly (charging). On battery, average each
+// 60 s and only ever step down: LED-load dips and 100/99 flicker average out,
+// and the jump when the lights turn off is ignored.
 static void bat_filter_task(void) {
-    static uint32_t differs_since = 0;
-    uint8_t         raw           = *md_getp_bat();
+    static uint32_t window_start = 0, sum = 0, n = 0;
+    uint8_t         raw          = *md_getp_bat();
 
     if (!raw || raw > 100) return; // 0 = no reading, >100 is not a percentage: keep the last good value
     if (!bat_shown || cable_present) {
-        bat_shown     = raw;
-        differs_since = 0;
+        bat_shown    = raw;
+        window_start = timer_read32();
+        sum = n = 0;
         return;
     }
-    if (raw == bat_shown) {
-        differs_since = 0;
-    } else if (!differs_since) {
-        differs_since = timer_read32();
-    } else if (timer_elapsed32(differs_since) > PUI_BAT_SETTLE) {
-        bat_shown     = raw;
-        differs_since = 0;
+    // ponytail: per-loop samples, plain mean; uint32 sum holds ~40M samples per window
+    sum += raw;
+    n++;
+    if (timer_elapsed32(window_start) > PUI_BAT_SETTLE) {
+        uint8_t avg = (sum + n / 2) / n;
+        if (avg < bat_shown) bat_shown = avg; // on battery the charge only goes down
+        window_start = timer_read32();
+        sum = n = 0;
     }
 }
 
